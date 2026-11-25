@@ -1,0 +1,318 @@
+{
+  "version": "mpml-retrieval-v1",
+  "mpml_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+  "questions": [
+    {
+      "id": "strategy-repeat",
+      "query": "Can I restrict an evaluation to both TF4 and MR42 using repeated options?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "arguments / --strategy"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Command-line arguments"
+        }
+      ]
+    },
+    {
+      "id": "surface-precedence",
+      "query": "Which wins when --behavioral-surface and BEHAVIORAL_SURFACE disagree, and what is the fallback?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "precedence / behavioral_surface"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "arguments / --behavioral-surface"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Precedence"
+        }
+      ]
+    },
+    {
+      "id": "variant-precedence",
+      "query": "What is the default experiment variant, and does the command line override the environment?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "precedence / experiment_variant"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "arguments / --experiment-variant"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "env / EXPERIMENT_VARIANT"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Precedence"
+        }
+      ]
+    },
+    {
+      "id": "seed",
+      "query": "How do I override the default RNG seed for a single run?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "precedence / experiment_seed"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "arguments / --experiment-seed"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Precedence"
+        }
+      ]
+    },
+    {
+      "id": "output",
+      "query": "Which setting wins if I provide both MPML_OUTPUT_DIR and --output-dir?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "precedence / output_directory"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "env / MPML_OUTPUT_DIR"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Precedence"
+        }
+      ]
+    },
+    {
+      "id": "strict-boolean",
+      "query": "Why would setting DL_SIGNALS_ENABLED to yes leave signals disabled?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "env / DL_SIGNALS_ENABLED"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "rules / ENV_BOOL_PARSED_FALSE"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Environment variables"
+        }
+      ]
+    },
+    {
+      "id": "artifact-alias",
+      "query": "What happens to the legacy prediction cube path when the primary artifact path is an empty string?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "env / DL_SIGNALS_CUBE_PATH"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "env / DL_PREDICTION_ARTIFACT_PATH"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Environment variables"
+        }
+      ]
+    },
+    {
+      "id": "missing-artifact",
+      "query": "Which preflight code reports an explicitly configured prediction artifact that does not exist?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "rules / DL_ARTIFACT_PATH_MISSING"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Preflight issue codes"
+        }
+      ]
+    },
+    {
+      "id": "pair-selection",
+      "query": "How does the pair selector handle whitespace, casing, and an empty list?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "env / ACTIVE_PAIRS"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Environment variables"
+        }
+      ]
+    },
+    {
+      "id": "invalid-pairs",
+      "query": "What diagnostic identifies pair names outside the supported universe?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "rules / ACTIVE_PAIRS_UNKNOWN"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Preflight issue codes"
+        }
+      ]
+    },
+    {
+      "id": "data-source",
+      "query": "What values can I use to select yfinance or local broker CSV data?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "env / MPML_DATA_SOURCE"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Environment variables"
+        }
+      ]
+    },
+    {
+      "id": "phaseaware-role",
+      "query": "Which strategy IDs may represent the trend-following half of PhaseAware?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "arguments / --phaseaware-tf"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Command-line arguments"
+        }
+      ]
+    },
+    {
+      "id": "phaseaware-repeat",
+      "query": "Which diagnostic applies if I supply a PhaseAware representative option twice?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "rules / PHASEAWARE_REPEATED"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Preflight issue codes"
+        }
+      ]
+    },
+    {
+      "id": "generation-conflict",
+      "query": "Where is the conflict between a requested generation and a selected variant documented?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "rules / GENERATION_VARIANT_MISMATCH"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "arguments / --experiment-generation"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Preflight issue codes"
+        }
+      ]
+    },
+    {
+      "id": "recommendation-limit",
+      "query": "Can I use zero to limit the number of recommendations?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "arguments / --recommendation-top-n"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "rules / TOP_N_NOT_POSITIVE"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Command-line arguments"
+        }
+      ]
+    },
+    {
+      "id": "timeline",
+      "query": "Why would preflight refuse a portfolio timeline export when there is no active dynamic selector?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "rules / TIMELINE_NEEDS_DYNAMIC_SELECTOR"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Preflight issue codes"
+        }
+      ]
+    },
+    {
+      "id": "surface-registry",
+      "query": "Where are persistent and reactive_jpy listed as behavioral surfaces?",
+      "expected": [
+        {
+          "path": "mpml/spec.py",
+          "heading": "registries / behavioral_surfaces"
+        },
+        {
+          "path": "mpml/spec.py",
+          "heading": "arguments / --behavioral-surface"
+        },
+        {
+          "path": "docs/CLI_REFERENCE.md",
+          "heading": "MPML CLI Reference / Registries"
+        }
+      ]
+    },
+    {
+      "id": "artifact-loading-limit",
+      "query": "Does a successful preflight establish that prediction data can actually be loaded?",
+      "expected": [
+        {
+          "path": "docs/architecture/MPML_LAUNCH_SURFACE_REFACTOR.md",
+          "heading": "MPML Launch-Surface Refactor / PR 2: Additive Preflight (existing run paths untouched) / Limits to state in the module docstring"
+        },
+        {
+          "path": "docs/architecture/MPML_LAUNCH_SURFACE_REFACTOR.md",
+          "heading": "MPML Launch-Surface Refactor / How `argus-cli` uses this"
+        }
+      ]
+    },
+    {
+      "id": "preflight-process",
+      "query": "Where does the integration contract say which venv and process environment the assistant uses for preflight?",
+      "expected": [
+        {
+          "path": "docs/architecture/MPML_LAUNCH_SURFACE_REFACTOR.md",
+          "heading": "MPML Launch-Surface Refactor / How `argus-cli` uses this"
+        }
+      ]
+    },
+    {
+      "id": "cache-scope",
+      "query": "Does the documented clear_cache helper delete raw or processed broker CSV caches?",
+      "expected": [
+        {
+          "path": "docs/architecture/MPML_LAUNCH_SURFACE_AUDIT.md",
+          "heading": "MPML Launch-Surface Audit / 3. Cache and output-directory side effects"
+        }
+      ]
+    }
+  ]
+}

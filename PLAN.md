@@ -1,6 +1,6 @@
 # Argus CLI — Implementation Plan
 
-**Status:** Updated 2026-11-25 · MPML-first MVP · local-first portfolio project · M0–M2 complete · M2.5 next
+**Status:** Updated 2026-11-25 · MPML-first MVP · local-first portfolio project · M0–M2.5 complete · M3 next
 
 ## 1. Purpose and scope
 
@@ -150,7 +150,7 @@ must not be presented as fulfilled merely because `DL_SIGNALS_ENABLED=true` pars
 | **M0 Foundation (complete)** | Packaging, CLI, YAML config, restricted MPML bridge, docs, CI, ADRs | Initial [foundation commit](https://github.com/jalmqvist/argus-cli/commit/3bccd4b9dae625f654c42eae494881bf1eadb801) and merged [PR #2](https://github.com/jalmqvist/argus-cli/pull/2). Synthetic pytest and Ruff CI passed. |
 | **M1 Working MPML lookup (complete)** | Deterministic `argus inspect` and `argus explain`, source provenance, and preflight for `argus recipe defaults` | Merged [PR #3](https://github.com/jalmqvist/argus-cli/pull/3). Real MPML smoke test passed, along with 25 unit tests and Ruff. |
 | **M2 Evidence ingestion / retrieval (complete)** | Published spec and Markdown heading chunks, provenance-aware citations, BM25+, local Ollama embeddings, hybrid ranking, and stale-index rejection | Merged [PR #4](https://github.com/jalmqvist/argus-cli/pull/4). Synthetic hit@5 and real integration evidence are recorded in §6. |
-| **M2.5 Real-MPML retrieval evaluation** | Curate approximately 20 questions with expected evidence IDs or source paths and headings | Reproducible hit@1 and hit@5 comparisons across BM25+, embedding, and hybrid on the same MPML snapshot, independent of recipe generation. |
+| **M2.5 Real-MPML retrieval evaluation (complete)** | Frozen set of 20 questions labeled with expected source paths and headings | Reproducible hit@1 and hit@5 comparisons across BM25+, embedding, and hybrid on the same MPML snapshot. See the [benchmark and results](eval/retrieval/README.md). |
 | **M3 Local LLM structured output** | Reuse M2 retrieval for LangChain/Ollama recipe generation. Validate structured fields with Pydantic and resolve citations to retrieved evidence. Run preflight on the candidate before rendering an escaped command for manual execution. | Score 20 MPML recipe-generation questions. Compare no-retrieval, docs-only, and hybrid retrieval baselines. |
 | **M4 LangGraph validated agent** | Orchestrate retrieve → generate → preflight → repair ≤ 2 → answer or abstain. Handle warnings, intent, and agent-level abstention. | Golden eval with correct warnings and abstentions. MPML interaction stays read-only. |
 | **M5 Portfolio release** | Clear README, demo, diagrams, model and ablation comparisons, reproducibility metadata, limitations | Fresh-clone toy demo; CI runs tests; local Ollama eval report committed with sanitized data |
@@ -186,15 +186,12 @@ commands. Cite retrieved evidence with repo/path/heading/revision.
 - In the M2 integration smoke test, Argus indexed 139 chunks from MPML revision
   `14ad36e3f70a10bb5781b88200e825a717ca402f` using `nomic-embed-text`. Lexical, embedding,
   and hybrid retrieval worked. Exploratory queries showed differences in relevance.
-  Formal real-MPML hit@1 and hit@5 scores are pending.
-- For M2.5, curate approximately 20 real-MPML questions with expected evidence
-  IDs or source paths and headings. Freeze the questions and labels before scoring.
-  Count a hit when any labeled chunk appears in the first `k` results. Compare hit@1
-  and hit@5 for lexical, embedding, and hybrid retrieval on the same snapshot. Record
-  the question set version, MPML SHA and dirty state, spec hash, selected documents,
-  index and retrieval configuration, and Ollama version and model digest. Keep private
-  evidence local and publish sanitized results. Run this evaluation without recipe
-  generation or experiment execution.
+- M2.5 reused the pinned MPML revision and model tag. The 20 frozen questions
+  yielded hit@1 and hit@5 of 14/20 and 20/20 for BM25+, 15/20 and 18/20 for
+  embedding, and 18/20 and 20/20 for hybrid. The [recorded results](eval/retrieval/results-v1.json)
+  include the per-question ranks, dataset and source hashes, retrieval configuration,
+  and Ollama version and model digest. The benchmark evaluates retrieval independently
+  of recipe generation.
 
 ### M3 and M4 recipe and agent evaluation
 
