@@ -1,5 +1,6 @@
 """Run the separate M3 generation fixture with the actual Argus CLI."""
 
+import argparse
 import json
 import subprocess
 import sys
@@ -7,8 +8,7 @@ import time
 from pathlib import Path
 
 
-def run():
-    questions = json.loads(Path(__file__).with_name("questions.json").read_text(encoding="utf-8"))
+def run(questions):
     result = []
     for item in questions:
         start = time.monotonic()
@@ -63,4 +63,9 @@ def run():
 
 
 if __name__ == "__main__":
-    print(json.dumps(run(), indent=2))
+    questions = json.loads(Path(__file__).with_name("questions.json").read_text(encoding="utf-8"))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--case", choices=[question["id"] for question in questions])
+    args = parser.parse_args()
+    selected = [question for question in questions if args.case in (None, question["id"])]
+    print(json.dumps(run(selected), indent=2))

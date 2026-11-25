@@ -148,7 +148,10 @@ def ask(
     except _SOURCE_ERRORS as exc:
         return {**report, "error": str(exc)}
     report["provenance"] = {key: metadata[key] for key in ("git_sha", "dirty", "spec_sha256")}
-    evidence = report_from_index["results"][retrieval_mode]
+    evidence = sorted(
+        report_from_index["results"][retrieval_mode],
+        key=lambda item: item["citation"]["path"] != "mpml/spec.py",
+    )
     if not evidence:
         return {**report, "verification": "abstained", "error": "No relevant indexed evidence"}
 

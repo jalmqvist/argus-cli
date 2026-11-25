@@ -1,4 +1,4 @@
-"""Embedding calls to the local Ollama instance."""
+"""Embedding and model metadata calls to the local Ollama instance."""
 
 import json
 from urllib.error import URLError

@@ -113,7 +113,8 @@ python -m pytest -q -s tests/test_retrieval.py::test_held_out_hit_at_five
 
 ## Ask for a cited MPML recipe
 
-With the MPML checkout configured, start local Ollama on port 11434. Use
+Use a configured MPML checkout whose interpreter can run both `mpml.spec` and
+`mpml.preflight`. Start local Ollama on port 11434. Use
 `OLLAMA_NO_CLOUD=1 ollama serve` when starting a dedicated instance. Install the
 `llm` extra for `ask` and pull both local models before indexing or querying.
 
@@ -145,9 +146,11 @@ timeout. Configure the model, temperature, seed, and timeout with `--model`,
 For an index built without embeddings, pass `--retrieval-mode lexical`. Rebuild
 a stale index before asking.
 
-The [M3 smoke fixture](eval/generation/README.md) records generation outcomes
-separately from the M2.5 retrieval benchmark. The [trust boundary ADR](docs/adr/0003-structured-generation.md)
-describes how Argus handles model output, source evidence, and preflight.
+The smoke fixture records M3 generation outcomes independently of the M2.5
+retrieval benchmark. [M3 smoke fixture](eval/generation/README.md)
+
+The architecture note describes how Argus handles model output, source evidence,
+and preflight. [Trust boundary ADR](docs/adr/0003-structured-generation.md)
 
 ## Key repo files
 

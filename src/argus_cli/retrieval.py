@@ -244,6 +244,7 @@ def retrieve(source: Source, query: str, mode: str, limit: int) -> dict:
 
 
 def source_matches(source: Source, metadata: dict) -> bool:
+    """Check that the revision and indexed evidence still match a verified snapshot."""
     return _snapshot(source)[0] == metadata
 
 
