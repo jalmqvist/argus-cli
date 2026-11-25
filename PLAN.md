@@ -1,6 +1,6 @@
 # Argus CLI — Implementation Plan
 
-**Status:** Updated 2026-11-25 · MPML-first MVP · local-first portfolio project
+**Status:** Updated 2026-11-25 · MPML-first MVP · local-first portfolio project · M0–M2 complete · M2.5 next
 
 ## 1. Purpose and scope
 
@@ -24,7 +24,7 @@ including the less obvious differences between a baseline and DL request.
 - No invented flags; every answer validated against `mpml.preflight` using real process env.
 - Report warnings accurately, including strict DL booleans and artifacts; never promise that
   a clean preflight guarantees DL activation or successful experiment execution.
-- Report retrieval hit@5, command validity, intent match, warning accuracy, abstention,
+- Report retrieval hit@1 and hit@5, command validity, intent match, warning accuracy, abstention,
   repair count, latency, and the differences between the deterministic baseline and RAG agent.
 - Public clone can run CI tests and toy adapter without private code, data or Ollama.
   A separate documented local demo with Ollama should be reproducible when Ollama/models
@@ -86,10 +86,14 @@ cell, not every DL/strategy combination or artifact compatibility.
 
 ## 3. Product architecture
 
+The diagram shows the planned end-to-end workflow. M2 provides the index and retrieval.
+M3 adds structured recipe generation and validation. M4 adds LangGraph orchestration,
+bounded repair, and agent-level abstention.
+
 ```text
 sources.yaml -> source adapter -> MPML spec + docs -> normalized evidence -> local index
                                                             |               |
-user question -> retrieval (BM25 + vector) -> Ollama structured recipe             |
+user question -> retrieval (BM25+ / vector) -> Ollama structured recipe             |
                                               -> safety/shape validation           |
                                               -> MPML preflight (same cwd/env)      |
                                               -> bounded repair or abstain          |
@@ -131,29 +135,30 @@ must not be presented as fulfilled merely because `DL_SIGNALS_ENABLED=true` pars
 - Python 3.12, `pytest`, Ruff, GitHub Actions; `pyproject.toml` packaging and `argus` CLI.
 - Ollama local-only. Start with a 7–8B available model; make model name configurable.
   Verify availability and structured-output quality before choosing a production default.
-- `langchain-ollama`/LangChain for model and embedding integrations; LangGraph for a
-  visible finite-state retrieve/generate/validate/repair/abstain workflow.
-- Hybrid retrieval: lexical BM25 plus embedding cosine similarity, with exact tokens
-  (strategy IDs, flags and env keys) weighted carefully. Begin with local JSON files
-  as an index/build artifact; choose Chroma/FAISS only if evaluation justifies it.
-- Pydantic schema validation and deterministic rendering. Avoid gratuitous abstractions.
+- M2 retrieval uses a local JSON index, BM25+, and embedding cosine similarity via local
+  Ollama. Lexical retrieval preserves exact option and environment tokens. Hybrid retrieval
+  uses reciprocal rank fusion. Consider Chroma/FAISS only if evaluation justifies it.
+- M3 uses `langchain-ollama`/LangChain for structured generation over the existing retrieval
+  layer, with Pydantic schema validation, citation checks, and deterministic rendering.
+- M4 uses LangGraph for a finite-state retrieve/generate/validate/repair/abstain workflow.
 - Pin exact resolved dependencies in a lock file after the first functioning installation.
 
 ## 4. Milestones and exit criteria (portfolio-first, vertical slices)
 
 | Milestone | Deliverable | Exit test / evidence |
 |---|---|---|
-| **M0 Foundation** | GitHub repo, packaging, CLI, YAML config, restricted MPML bridge, docs, CI, ADRs | `pytest`/Ruff green on synthetic tests; `argus doctor/spec/preflight` locally |
-| **M1 Working MPML lookup** | Inspect MPML spec and answer deterministic flag/env/precedence questions, formatted command templates, source SHA | 10 curated launch questions answer without Ollama; no unknown flags |
-| **M2 Evidence ingestion / retrieval** | Spec chunks + Markdown heading chunks, commit-aware index, BM25, embeddings via Ollama, hybrid retrieval; provenance | Retrieval hit@5 recorded on held-out questions; stale index detected |
-| **M3 Local LLM structured output** | LangChain-Ollama/Pydantic candidate generation, command renderer, citations | Baselines (no RAG/docs-only/hybrid); 20 MPML questions scored |
-| **M4 LangGraph validated agent** | retrieve → generate → preflight → repair ≤ 2 → answer or abstain; warning/intent handling | Golden eval with correct warnings and abstentions; no experiment execution |
+| **M0 Foundation (complete)** | Packaging, CLI, YAML config, restricted MPML bridge, docs, CI, ADRs | Initial [foundation commit](https://github.com/jalmqvist/argus-cli/commit/3bccd4b9dae625f654c42eae494881bf1eadb801) and merged [PR #2](https://github.com/jalmqvist/argus-cli/pull/2). Synthetic pytest and Ruff CI passed. |
+| **M1 Working MPML lookup (complete)** | Deterministic `argus inspect` and `argus explain`, source provenance, and preflight for `argus recipe defaults` | Merged [PR #3](https://github.com/jalmqvist/argus-cli/pull/3). Real MPML smoke test passed, along with 25 unit tests and Ruff. |
+| **M2 Evidence ingestion / retrieval (complete)** | Published spec and Markdown heading chunks, provenance-aware citations, BM25+, local Ollama embeddings, hybrid ranking, and stale-index rejection | Merged [PR #4](https://github.com/jalmqvist/argus-cli/pull/4). Synthetic hit@5 and real integration evidence are recorded in §6. |
+| **M2.5 Real-MPML retrieval evaluation** | Curate approximately 20 questions with expected evidence IDs or source paths and headings | Reproducible hit@1 and hit@5 comparisons across BM25+, embedding, and hybrid on the same MPML snapshot, independent of recipe generation. |
+| **M3 Local LLM structured output** | Reuse M2 retrieval for LangChain/Ollama recipe generation. Validate structured fields with Pydantic and resolve citations to retrieved evidence. Run preflight on the candidate before rendering an escaped command for manual execution. | Score 20 MPML recipe-generation questions. Compare no-retrieval, docs-only, and hybrid retrieval baselines. |
+| **M4 LangGraph validated agent** | Orchestrate retrieve → generate → preflight → repair ≤ 2 → answer or abstain. Handle warnings, intent, and agent-level abstention. | Golden eval with correct warnings and abstentions. MPML interaction stays read-only. |
 | **M5 Portfolio release** | Clear README, demo, diagrams, model and ablation comparisons, reproducibility metadata, limitations | Fresh-clone toy demo; CI runs tests; local Ollama eval report committed with sanitized data |
 | **Later** | MSML, BSVE, MRML source adapters; optional experimental results retrieval | Separate ADR + integration test per source repo |
 
 Milestones produce independently reviewable PRs. **Avoid building every adapter,
 vector DB, tool registry and agent framework before the first MPML use case works.**
-Do not require an LLM for M0/M1 CI tests.
+M0–M2 CI uses synthetic fixtures and runs without Ollama.
 
 ## 5. Public vs local data and deployment
 
@@ -173,26 +178,47 @@ commands. Cite retrieved evidence with repo/path/heading/revision.
 
 ## 6. Evaluation and run evidence
 
-Keep the original evaluation metrics, but separate **syntactic validity**, **preflight
-status**, **intent fulfillment**, and **scientific run outcome**. A zero-issue preflight
-is never proof the full experiment completed or DL actually activated.
+### M2 and M2.5 retrieval evaluation
 
-Metrics: retrieval hit@5, parse validity, rule validity, warning accuracy, normalized
-command exact/semantic match, abstention precision/recall, mean repair attempts,
-model output/schema failure rate, hallucinated flag count, p50/p95 latency. Track
-cost proxies such as generated tokens; no cloud API charges.
+- Six held-out synthetic questions yielded hit@5 of 5/6 for BM25+,
+  6/6 for embeddings, and 6/6 for hybrid. The embedding and hybrid results use mocked
+  Ollama responses.
+- In the M2 integration smoke test, Argus indexed 139 chunks from MPML revision
+  `14ad36e3f70a10bb5781b88200e825a717ca402f` using `nomic-embed-text`. Lexical, embedding,
+  and hybrid retrieval worked. Exploratory queries showed differences in relevance.
+  Formal real-MPML hit@1 and hit@5 scores are pending.
+- For M2.5, curate approximately 20 real-MPML questions with expected evidence
+  IDs or source paths and headings. Freeze the questions and labels before scoring.
+  Count a hit when any labeled chunk appears in the first `k` results. Compare hit@1
+  and hit@5 for lexical, embedding, and hybrid retrieval on the same snapshot. Record
+  the question set version, MPML SHA and dirty state, spec hash, selected documents,
+  index and retrieval configuration, and Ollama version and model digest. Keep private
+  evidence local and publish sanitized results. Run this evaluation without recipe
+  generation or experiment execution.
 
-Ablations: deterministic spec-only; model without retrieval; docs-only; spec+docs;
-BM25-only; vector-only; hybrid; hybrid+preflight; hybrid+repair. Compare two local
-small models as time permits; one larger model is an optional quality ceiling.
+### M3 and M4 recipe and agent evaluation
 
-Start with **20 public/sanitized MPML golden questions**, including at least one per
+Score **syntactic validity**, **preflight status**, **intent fulfillment**, and
+**scientific run outcome** independently. A zero-issue preflight is never proof the
+full experiment completed or DL actually activated.
+
+M3 metrics include parse validity, rule validity, warning accuracy, normalized command
+exact/semantic match, model output/schema failure rate, hallucinated flag count, and
+p50/p95 latency. Track cost proxies such as generated tokens. M4 adds abstention
+precision/recall and mean repair attempts.
+
+Recipe ablations include deterministic spec-only, model without retrieval, docs-only,
+spec+docs, and hybrid retrieval. Compare hybrid+preflight with hybrid+repair in M4.
+Compare two local small models as time permits. One larger model is an optional
+quality ceiling.
+
+Start with **20 public/sanitized MPML recipe questions**, including at least one per
 preflight diagnostic family, multi-flag requests, malformed/contradictory intent,
 unknown strategy, repeated PhaseAware, strict DL boolean, artifact-alias precedence,
-generation/variant mismatch, output-name hints, empty default baseline, and abstentions.
-Hold out roughly 30% before prompt tuning. Record the dataset version, source SHA,
-Ollama/model details, retrieval config and run seed. The historical
-`mpml_run_examples.tgz` is optional *local context*, not a CI dependency or oracle.
+generation/variant mismatch, and output-name hints. Include the empty default baseline
+and add abstention cases for M4. Hold out roughly 30% before prompt tuning. Record the
+dataset version, source SHA, Ollama/model details, retrieval config and run seed. The
+historical `mpml_run_examples.tgz` remains optional local context for authoring questions.
 
 Older local run evidence may help author questions, but do not treat historical run
 artifacts as verified exact answers for a new MPML revision. A pending LSTM
