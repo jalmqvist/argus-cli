@@ -22,9 +22,8 @@ class BridgeResult:
 def _invoke(source: Source, module: str, argv: list[str], *, overrides: dict[str,str] | None=None, timeout: int=90) -> BridgeResult:
     if source.adapter != "mpml_v1":
         raise BridgeError(f"Unsupported adapter: {source.adapter}")
-    # Do not accept arbitrary modules from a generated answer. Module names come only from trusted config.
-    if module not in {source.spec_module,source.preflight_module}:
-        raise BridgeError("Unapproved validation module")
+    if (source.spec_module, source.preflight_module) != ("mpml.spec", "mpml.preflight"):
+        raise BridgeError("MPML v1 requires mpml.spec and mpml.preflight")
     if not all(isinstance(x,str) for x in argv):
         raise BridgeError("argv must be a list of strings")
     if overrides and not all(isinstance(k,str) and isinstance(v,str) for k,v in overrides.items()):
@@ -34,7 +33,7 @@ def _invoke(source: Source, module: str, argv: list[str], *, overrides: dict[str
     # A target venv is always used. The MPML repo root is the working directory for matching semantics.
     try:
         proc=subprocess.run([str(source.python),"-m",module,*argv],cwd=source.root,
-            env=env,text=True,capture_output=True,check=False,timeout=timeout)
+            env=env,text=True,capture_output=True,check=False,shell=False,timeout=timeout)
     except (OSError,subprocess.TimeoutExpired) as exc:
         raise BridgeError(f"MPML interface invocation failed: {exc}") from exc
     try:
