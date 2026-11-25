@@ -1,0 +1,151 @@
+{
+  "dataset": "mpml-retrieval-v1",
+  "dataset_sha256": "a3bd931de69f666a0b29ea6cdbf8acd2bc768da883b0d76b9b52a5774f497a50",
+  "questions": 20,
+  "source": {
+    "repo": "mpml",
+    "git_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+    "dirty": false,
+    "spec_sha256": "fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a",
+    "documents": {
+      "docs/CLI_REFERENCE.md": "d139c6a5828eadaddde64d28ed89509045700b841c8625336fc6e61855586dff",
+      "docs/architecture/MPML_LAUNCH_SURFACE_REFACTOR.md": "7df9c4aad72db4b95b53d5e69186b6e2ff71577b900d12fe6b6fa9a0f89d81c8",
+      "docs/architecture/MPML_LAUNCH_SURFACE_AUDIT.md": "2e1a98879104a2bbdc5619ff4b8359d344f8bd28a83177e7c577990b4cce62c5"
+    }
+  },
+  "index": {
+    "format": 1,
+    "chunks": 139
+  },
+  "retrieval": {
+    "lexical": "BM25+",
+    "embedding": "cosine similarity",
+    "hybrid": "reciprocal rank fusion (k=60)",
+    "limit": 5,
+    "argus_retrieval_commit": "b5a5f44cdf6f283a8b3ede31b4e5c301c1a833e1",
+    "python": "3.12.14",
+    "numpy": "2.5.5",
+    "rank_bm25": "0.2.2"
+  },
+  "ollama": {
+    "version": "0.40.18",
+    "model": "nomic-embed-text",
+    "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f"
+  },
+  "hits": {
+    "lexical": {
+      "hit@1": 14,
+      "hit@5": 20
+    },
+    "embedding": {
+      "hit@1": 15,
+      "hit@5": 18
+    },
+    "hybrid": {
+      "hit@1": 18,
+      "hit@5": 20
+    }
+  },
+  "first_relevant_rank": {
+    "strategy-repeat": {
+      "lexical": 1,
+      "embedding": null,
+      "hybrid": 3
+    },
+    "surface-precedence": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "variant-precedence": {
+      "lexical": 5,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "seed": {
+      "lexical": 2,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "output": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "strict-boolean": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "artifact-alias": {
+      "lexical": 1,
+      "embedding": 2,
+      "hybrid": 1
+    },
+    "missing-artifact": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "pair-selection": {
+      "lexical": 4,
+      "embedding": 3,
+      "hybrid": 1
+    },
+    "invalid-pairs": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "data-source": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "phaseaware-role": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "phaseaware-repeat": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "generation-conflict": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "recommendation-limit": {
+      "lexical": 2,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "timeline": {
+      "lexical": 2,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "surface-registry": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    },
+    "artifact-loading-limit": {
+      "lexical": 2,
+      "embedding": null,
+      "hybrid": 3
+    },
+    "preflight-process": {
+      "lexical": 1,
+      "embedding": 3,
+      "hybrid": 1
+    },
+    "cache-scope": {
+      "lexical": 1,
+      "embedding": 1,
+      "hybrid": 1
+    }
+  }
+}
