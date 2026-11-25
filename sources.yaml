@@ -1,0 +1,13 @@
+schema_version: 1
+sources:
+  mpml:
+    root: ${MPML_REPO}
+    python: ${MPML_PYTHON}
+    adapter: mpml_v1
+    spec_module: mpml.spec
+    preflight_module: mpml.preflight
+    entrypoint: main.py
+    documents:
+      - docs/CLI_REFERENCE.md
+      - docs/architecture/MPML_LAUNCH_SURFACE_REFACTOR.md
+      - docs/architecture/MPML_LAUNCH_SURFACE_AUDIT.md

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "argus-cli"
+version = "0.1.0"
+description = "Local, read-only, evidence-grounded research CLI assistant"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+dependencies = ["PyYAML>=6.0,<7"]
+
+[project.optional-dependencies]
+llm = ["langchain-core>=1,<2", "langchain-ollama>=1,<2", "langgraph>=1,<2", "pydantic>=2,<3", "rank-bm25>=0.2,<1", "numpy>=2,<3"]
+dev = ["pytest>=8,<10", "ruff>=0.9,<1"]
+
+[project.scripts]
+argus = "argus_cli.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/argus_cli"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
