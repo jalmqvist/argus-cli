@@ -1,10 +1,13 @@
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
-import subprocess
-from argus_cli.adapters.mpml import spec,preflight,BridgeError
-from argus_cli.config import Source
+
 import pytest
+
+from argus_cli.adapters.mpml import BridgeError, preflight, spec
+from argus_cli.config import Source
+
 
 @pytest.fixture
 def source(tmp_path:Path)->Source:
@@ -31,6 +34,8 @@ def test_preflight_preserves_argv_and_status(source:Source)->None:
 
 def test_rejects_non_json_output(source:Source)->None:
     proc=subprocess.CompletedProcess([],1,"traceback","")
-    with patch("argus_cli.adapters.mpml.subprocess.run",return_value=proc):
-        with pytest.raises(BridgeError,match="single JSON"):
-            preflight(source,[])
+    with (
+        patch("argus_cli.adapters.mpml.subprocess.run", return_value=proc),
+        pytest.raises(BridgeError, match="single JSON"),
+    ):
+        preflight(source, [])

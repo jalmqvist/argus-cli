@@ -1,13 +1,16 @@
 """Starter commands: inspect an MPML source; no experiment execution support."""
 from __future__ import annotations
+
 import argparse
 import json
-from pathlib import Path
-import sys
 import subprocess
+import sys
+from pathlib import Path
+
 from argus_cli.adapters.mpml import BridgeError, preflight, spec
 from argus_cli.config import ConfigError, load_sources
 from argus_cli.provenance import revision
+
 
 def main(argv:list[str]|None=None)->int:
     parser=argparse.ArgumentParser(prog="argus",description="Read-only local CLI research assistant")
