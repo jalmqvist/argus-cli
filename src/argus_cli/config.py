@@ -1,9 +1,11 @@
 """Configuration is local; source repository contents never enter git artifacts."""
 from __future__ import annotations
-from dataclasses import dataclass
+
 import os
-from pathlib import Path
 import re
+from dataclasses import dataclass
+from pathlib import Path
+
 import yaml
 
 _TOKEN = re.compile(r"\$\{([A-Z][A-Z0-9_]*)\}")
