@@ -1,0 +1,373 @@
+{
+  "version": "mpml-generation-v1",
+  "mpml_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+  "cases": [
+    {
+      "id": "strategy-and-pair",
+      "question": "How do I evaluate MR32 on USDJPY?",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--strategy",
+            "MR32"
+          ],
+          "env": {
+            "ACTIVE_PAIRS": "USDJPY"
+          },
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "explicit-seed",
+      "question": "Use the --experiment-seed flag to set the MPML random seed to 123.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-seed",
+            "123"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "seed-env",
+      "question": "Set the MPML random seed to 123 using an environment override only.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [],
+          "env": {
+            "EXPERIMENT_SEED": "123"
+          },
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "seed-precedence",
+      "question": "Keep EXPERIMENT_SEED=11 in the environment, but make this run use seed 123 through the CLI.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-seed",
+            "123"
+          ],
+          "env": {
+            "EXPERIMENT_SEED": "11"
+          },
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "variant-env",
+      "question": "Set experiment variant B through the environment only.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [],
+          "env": {
+            "EXPERIMENT_VARIANT": "B"
+          },
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "variant-precedence",
+      "question": "Keep EXPERIMENT_VARIANT=A as an environment override, but select variant B on the command line.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-variant",
+            "B"
+          ],
+          "env": {
+            "EXPERIMENT_VARIANT": "A"
+          },
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "variant-and-seed",
+      "question": "Select variant C and seed 17 using CLI flags only.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-variant",
+            "C",
+            "--experiment-seed",
+            "17"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-seed",
+            "17",
+            "--experiment-variant",
+            "C"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "multi-strategy",
+      "question": "Evaluate TF4 followed by MR32 in the same launch, in that order.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--strategy",
+            "TF4",
+            "--strategy",
+            "MR32"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "pair-list",
+      "question": "Use only USDJPY and EURUSD, in that order, with the default strategy selection.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [],
+          "env": {
+            "ACTIVE_PAIRS": "USDJPY,EURUSD"
+          },
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [],
+          "env": {
+            "ACTIVE_PAIRS": "USDJPY, EURUSD"
+          },
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "surface",
+      "question": "Select the persistent behavioral surface with a CLI flag.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--behavioral-surface",
+            "persistent"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "surface-precedence",
+      "question": "Keep BEHAVIORAL_SURFACE=trend_vol in the environment but select persistent on the command line.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--behavioral-surface",
+            "persistent"
+          ],
+          "env": {
+            "BEHAVIORAL_SURFACE": "trend_vol"
+          },
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "phaseaware-roles",
+      "question": "Set TF4 as the PhaseAware trend-following representative and MR32 as the mean-reversion representative, without filtering the evaluated strategies.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--phaseaware-tf",
+            "TF4",
+            "--phaseaware-mr",
+            "MR32"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--phaseaware-mr",
+            "MR32",
+            "--phaseaware-tf",
+            "TF4"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "phaseaware-wrong-role",
+      "question": "Use MR32 as the PhaseAware trend-following representative. Do not substitute another strategy.",
+      "expected": [
+        {
+          "verification": "abstained",
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "rejected",
+          "argv": [
+            "--phaseaware-tf",
+            "MR32"
+          ],
+          "env": {},
+          "diagnostic_codes": [
+            "PHASEAWARE_ROLE_INVALID"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "strict-dl-boolean",
+      "question": "Can I enable DL by setting DL_SIGNALS_ENABLED=1? If it would not enable DL, do not give me a launch command or change the value.",
+      "expected": [
+        {
+          "verification": "abstained",
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "abstained",
+          "argv": [],
+          "env": {
+            "DL_SIGNALS_ENABLED": "1"
+          },
+          "diagnostic_codes": [
+            "ENV_BOOL_PARSED_FALSE"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "artifact-alias",
+      "question": "With DL off, leave DL_PREDICTION_ARTIFACT_PATH empty and set DL_SIGNALS_CUBE_PATH to example-cube.parquet. Show a preflighted recipe that keeps both overrides.",
+      "expected": [
+        {
+          "verification": "validated_with_warnings",
+          "argv": [],
+          "env": {
+            "DL_SIGNALS_ENABLED": "false",
+            "DL_PREDICTION_ARTIFACT_PATH": "",
+            "DL_SIGNALS_CUBE_PATH": "example-cube.parquet"
+          },
+          "diagnostic_codes": [
+            "DL_ALIAS_SUPPRESSED"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dl-proof",
+      "question": "Can preflight prove DL is active and the prediction artifact was actually loaded?",
+      "expected": [
+        {
+          "verification": "abstained",
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "contradictory-generation",
+      "question": "I require both gen2 and variant A. Do not change either selection.",
+      "expected": [
+        {
+          "verification": "abstained",
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "rejected",
+          "argv": [
+            "--experiment-generation",
+            "gen2",
+            "--experiment-variant",
+            "A"
+          ],
+          "env": {},
+          "diagnostic_codes": [
+            "GENERATION_VARIANT_MISMATCH"
+          ]
+        },
+        {
+          "verification": "rejected",
+          "argv": [
+            "--experiment-variant",
+            "A",
+            "--experiment-generation",
+            "gen2"
+          ],
+          "env": {},
+          "diagnostic_codes": [
+            "GENERATION_VARIANT_MISMATCH"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unspecified-strategy",
+      "question": "Use the strategy we agreed on earlier and no other strategies. I have not provided the strategy name in this question.",
+      "expected": [
+        {
+          "verification": "abstained",
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "unknown-strategy",
+      "question": "Evaluate only ZZ999. Do not replace it with another strategy.",
+      "expected": [
+        {
+          "verification": "abstained",
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "rejected",
+          "argv": [
+            "--strategy",
+            "ZZ999"
+          ],
+          "env": {},
+          "diagnostic_codes": [
+            "STRATEGY_UNKNOWN"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unsupported-order",
+      "question": "Which MPML launch flags place a live broker order for USDJPY?",
+      "expected": [
+        {
+          "verification": "abstained",
+          "diagnostic_codes": []
+        }
+      ]
+    }
+  ]
+}
