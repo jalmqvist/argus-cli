@@ -1,4 +1,4 @@
-"""Starter commands: inspect an MPML source; no experiment execution support."""
+"""Read-only commands for inspecting and preflighting MPML launches."""
 from __future__ import annotations
 
 import argparse
@@ -59,13 +59,55 @@ def main(argv:list[str]|None=None)->int:
     search.add_argument("query")
     search.add_argument("--mode", choices=MODES, default="lexical")
     search.add_argument("--limit", type=int, default=5)
+    answer = sub.add_parser("ask", help="Generate and preflight a cited MPML recipe")
+    answer.add_argument("question")
+    answer.add_argument("--model", default="qwen2.5-coder:7b")
+    answer.add_argument(
+        "--retrieval-mode", choices=("lexical", "embedding", "hybrid"), default="hybrid"
+    )
+    answer.add_argument("--temperature", type=float, default=0.0)
+    answer.add_argument("--seed", type=int, default=42)
+    answer.add_argument("--timeout", type=float, default=180.0, metavar="SECONDS")
     args=parser.parse_args(argv)
+    if args.command == "ask" and not (
+        args.question.strip()
+        and len(args.question) <= 4000
+        and 0 <= args.temperature <= 2
+        and 0 < args.timeout <= 600
+        and args.seed >= 0
+        and args.model.strip()
+    ):
+        answer.error(
+            "requires a question (up to 4000 characters), a model, temperature 0–2, "
+            "a nonnegative seed, and timeout in (0, 600] seconds"
+        )
     if args.command == "retrieve" and (args.limit < 1 or not args.query.strip()):
         search.error("retrieve requires a nonblank query and a positive --limit")
     try:
         sources=load_sources(args.config)
         if "mpml" not in sources: raise ConfigError("Missing mpml source")
         source=sources["mpml"]
+        if args.command == "ask":
+            try:
+                from argus_cli.ask import ask
+                from argus_cli.generation import GenerationSettings
+            except ModuleNotFoundError as exc:
+                raise ConfigError(
+                    "argus ask requires the optional dependencies: pip install 'argus-cli[llm]'"
+                ) from exc
+            report = ask(
+                source,
+                args.question,
+                model=args.model,
+                retrieval_mode=args.retrieval_mode,
+                settings=GenerationSettings(
+                    temperature=args.temperature,
+                    seed=args.seed,
+                    timeout_seconds=args.timeout,
+                ),
+            )
+            print(json.dumps(report, indent=2))
+            return 0 if report["command"] is not None else 1
         if args.command=="doctor":
             info=revision(source.root)
             print(json.dumps({"source":"mpml","root":str(source.root),"python":str(source.python),

@@ -52,3 +52,20 @@ def spec(source: Source) -> BridgeResult:
 
 def preflight(source: Source,argv:list[str],*,overrides:dict[str,str]|None=None)->BridgeResult:
     return _invoke(source,source.preflight_module,argv,overrides=overrides)
+
+
+def preflight_verification(result: BridgeResult) -> str:
+    """Classify MPML diagnostics without changing its response."""
+    issues = result.document.get("issues")
+    if not isinstance(issues, list) or not all(
+        isinstance(issue, dict)
+        and issue.get("severity") in ("error", "warning")
+        and all(isinstance(issue.get(key), str) for key in ("code", "source", "message"))
+        for issue in issues
+    ):
+        raise BridgeError("MPML returned malformed preflight diagnostics")
+    if any(issue["severity"] == "error" for issue in issues):
+        return "rejected"
+    if result.exit_code != 0:
+        return "unverified"
+    return "validated_with_warnings" if issues else "validated"
