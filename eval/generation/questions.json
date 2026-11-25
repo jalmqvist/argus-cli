@@ -1,0 +1,36 @@
+[
+  {
+    "id": "strategy-and-pair",
+    "question": "How do I evaluate MR32 on USDJPY?",
+    "expected": {
+      "verification": "validated",
+      "argv": ["--strategy", "MR32"],
+      "env": {"ACTIVE_PAIRS": "USDJPY"}
+    }
+  },
+  {
+    "id": "explicit-seed",
+    "question": "Use the --experiment-seed flag to set the MPML random seed to 123.",
+    "expected": {
+      "verification": "validated",
+      "argv": ["--experiment-seed", "123"],
+      "env": {}
+    }
+  },
+  {
+    "id": "unsupported-order",
+    "question": "Which MPML launch flags place a live broker order for USDJPY?",
+    "expected": {
+      "verification": "abstained",
+      "command_rendered": false
+    }
+  },
+  {
+    "id": "dl-proof",
+    "question": "Can preflight prove DL is active and the prediction artifact was actually loaded?",
+    "expected": {
+      "verification": "abstained",
+      "command_rendered": false
+    }
+  }
+]

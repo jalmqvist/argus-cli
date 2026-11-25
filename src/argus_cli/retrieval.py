@@ -69,7 +69,7 @@ def _markdown_sections(text: str):
         yield " / ".join(title for _, title in headings) or "(preamble)", "\n".join(lines).strip()
 
 
-def _snapshot(source: Source) -> tuple[dict, list[dict]]:
+def _snapshot(source: Source) -> tuple[dict, list[dict], dict]:
     before = revision(source.root)
     document = spec(source).document
     sections = []
@@ -142,7 +142,7 @@ def _snapshot(source: Source) -> tuple[dict, list[dict]]:
         )
     if not chunks:
         raise RetrievalError("MPML spec and references produced no chunks")
-    return metadata, chunks
+    return metadata, chunks, document
 
 
 def _search_text(chunk: dict) -> str:
@@ -163,7 +163,7 @@ def _unit_vectors(vectors: list, count: int) -> np.ndarray:
 
 
 def build(source: Source, model: str | None) -> dict:
-    metadata, chunks = _snapshot(source)
+    metadata, chunks, _ = _snapshot(source)
     embeddings = None
     if model is not None:
         digest = ollama.model_digest(model)
@@ -239,6 +239,16 @@ def _embedding(chunks: list[dict], query: str, embeddings: dict | None) -> list[
 
 
 def retrieve(source: Source, query: str, mode: str, limit: int) -> dict:
+    report, _, _ = retrieve_context(source, query, mode, limit)
+    return report
+
+
+def source_matches(source: Source, metadata: dict) -> bool:
+    return _snapshot(source)[0] == metadata
+
+
+def retrieve_context(source: Source, query: str, mode: str, limit: int) -> tuple[dict, dict, dict]:
+    """Return rankings with the live source metadata and spec used to verify the index."""
     try:
         document = json.loads(INDEX.read_text(encoding="utf-8"))
     except (FileNotFoundError, ValueError) as exc:
@@ -246,7 +256,7 @@ def retrieve(source: Source, query: str, mode: str, limit: int) -> dict:
     if not isinstance(document, dict) or document.get("version") != 1:
         raise RetrievalError("Unsupported index format; rebuild with argus index")
     try:
-        metadata, chunks = _snapshot(source)
+        metadata, chunks, spec_document = _snapshot(source)
     except (OSError, UnicodeError) as exc:
         raise RetrievalError(
             f"Cannot verify current MPML evidence; check the source and rebuild with argus index: {exc}"
@@ -266,7 +276,8 @@ def retrieve(source: Source, query: str, mode: str, limit: int) -> dict:
                 scores[index] += 1 / (60 + rank)
         rankings["hybrid"] = sorted(scores, key=lambda i: (-scores[i], chunks[i]["id"]))
     selected = rankings if mode == "all" else {mode: rankings[mode]}
-    return {
+    report = {
         "query": query,
         "results": {name: [chunks[i] for i in ranks[:limit]] for name, ranks in selected.items()},
     }
+    return report, metadata, spec_document

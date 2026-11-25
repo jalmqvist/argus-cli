@@ -4,15 +4,15 @@ Local, privacy-preserving, **read-only** research CLI assistant. An MPML-first p
 project demonstrating deterministic tool integration, local LLMs, structured generation,
 RAG, validation and measured agent reliability.
 
-**Current state:** deterministic MPML lookup, preflight, and local retrieval. Argus reads the
-published MPML spec from your checkout and can check a default launch candidate.
+**Current state:** MPML lookup, preflight, local retrieval, and structured recipe generation.
+Argus reads the published MPML spec from your checkout and can preflight a proposed launch.
 
 ## Install
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev,llm]'
 export MPML_REPO=/absolute/path/to/market-phase-ml
 export MPML_PYTHON=/absolute/path/to/market-phase-ml/.venv/bin/python
 argus doctor
@@ -110,6 +110,44 @@ remain unmeasured.
 ```bash
 python -m pytest -q -s tests/test_retrieval.py::test_held_out_hit_at_five
 ```
+
+## Ask for a cited MPML recipe
+
+With the MPML checkout configured, start local Ollama on port 11434. Use
+`OLLAMA_NO_CLOUD=1 ollama serve` when starting a dedicated instance. Install the
+`llm` extra for `ask` and pull both local models before indexing or querying.
+
+```bash
+python -m pip install -e '.[llm]'
+ollama pull nomic-embed-text
+ollama pull qwen2.5-coder:7b
+argus index --embed nomic-embed-text
+argus ask --timeout 300 "How do I evaluate MR32 on USDJPY?"
+```
+
+Check the JSON for the intended `--strategy MR32` and `ACTIVE_PAIRS=USDJPY`, resolved
+citations, and the original MPML preflight findings. A successful recipe has a
+POSIX-shell-escaped `command` for **manual execution only**. Argus leaves execution and
+intent unverified. Review the argv, overrides, and any warnings before using it,
+and keep the same inherited environment if you decide to run it.
+
+- `structural_validation` covers schema, citation membership, and the allowed argument
+  and override shapes. MPML owns parsing and semantic checks.
+- `preflight_validation` reports whether MPML accepted the candidate. The overall
+  `verification` can still be `abstained`, for example when DL activation is unverified.
+- `ask` exits 0 when it renders a command, 1 for a JSON rejection, abstention, or
+  unverified result, and 2 for CLI/configuration errors.
+
+The defaults are `qwen2.5-coder:7b`, hybrid retrieval, temperature 0, seed 42,
+an 8192-token context, up to 1100 generated tokens, and a 180-second generation
+timeout. Configure the model, temperature, seed, and timeout with `--model`,
+`--temperature`, `--seed`, and `--timeout`. CPU-only inference can take minutes.
+For an index built without embeddings, pass `--retrieval-mode lexical`. Rebuild
+a stale index before asking.
+
+The [M3 smoke fixture](eval/generation/README.md) records generation outcomes
+separately from the M2.5 retrieval benchmark. The [trust boundary ADR](docs/adr/0003-structured-generation.md)
+describes how Argus handles model output, source evidence, and preflight.
 
 ## Key repo files
 

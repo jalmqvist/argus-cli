@@ -1,6 +1,6 @@
 """Deterministic lookup and candidate reporting for MPML's published schema."""
 
-from argus_cli.adapters.mpml import BridgeError, preflight, spec
+from argus_cli.adapters.mpml import BridgeError, preflight, preflight_verification, spec
 from argus_cli.config import Source
 from argus_cli.provenance import revision, spec_sha256
 
@@ -89,18 +89,10 @@ def _recipe(source: Source) -> dict:
         report["preflight_error"] = str(exc)
         return report
 
-    issues = result.document.get("issues")
     report["preflight"] = result.document
     report["preflight_exit_code"] = result.exit_code
-    if not isinstance(issues, list) or not all(
-        isinstance(issue, dict)
-        and issue.get("severity") in ("error", "warning")
-        and all(isinstance(issue.get(key), str) for key in ("code", "source", "message"))
-        for issue in issues
-    ):
-        report["preflight_error"] = "MPML returned malformed preflight diagnostics"
-    elif any(issue["severity"] == "error" for issue in issues):
-        report["verification"] = "rejected"
-    elif result.exit_code == 0:
-        report["verification"] = "validated_with_warnings" if issues else "validated"
+    try:
+        report["verification"] = preflight_verification(result)
+    except BridgeError as exc:
+        report["preflight_error"] = str(exc)
     return report
