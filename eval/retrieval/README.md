@@ -45,7 +45,9 @@ the dataset hash, source and document hashes, retrieval configuration, and the
 Ollama version and model digest. Compare the digest to the recorded run when
 reproducing it because model tags can change.
 
-This benchmark measures retrieval over the pinned MPML snapshot. Broad reference
-sections can count as hits and the set is small, so the scores primarily help
-identify where ranking modes differ on these questions. Recipe generation and
-preflight outcomes have their own evaluations.
+The questions were authored from the indexed MPML spec and references. The
+benchmark has no independently collected user questions, so it may favor the
+terminology and framing of those sources. A broad reference section can score
+as a hit even when the relevant detail is buried among unrelated material,
+which may inflate apparent retrieval success. Use these scores to compare
+rankings on this set. Recipe generation and preflight have separate evaluations.
