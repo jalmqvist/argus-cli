@@ -10,7 +10,9 @@ from pathlib import Path
 from argus_cli.adapters.mpml import BridgeError, preflight, spec
 from argus_cli.config import ConfigError, load_sources
 from argus_cli.mpml_help import describe
+from argus_cli.ollama import EmbeddingError
 from argus_cli.provenance import revision
+from argus_cli.retrieval import MODES, RetrievalError, build, retrieve
 
 
 class _CommandParser(argparse.ArgumentParser):
@@ -51,7 +53,15 @@ def main(argv:list[str]|None=None)->int:
     )
     recipe = sub.add_parser("recipe", help="Preflight a supported MPML launch pattern")
     recipe.add_argument("query", metavar="pattern", choices=["defaults"], help="defaults")
+    index = sub.add_parser("index", help="Build the local MPML knowledge index")
+    index.add_argument("--embed", metavar="MODEL", help="Store embeddings from local Ollama")
+    search = sub.add_parser("retrieve", help="Find cited MPML evidence in the local index")
+    search.add_argument("query")
+    search.add_argument("--mode", choices=MODES, default="lexical")
+    search.add_argument("--limit", type=int, default=5)
     args=parser.parse_args(argv)
+    if args.command == "retrieve" and (args.limit < 1 or not args.query.strip()):
+        search.error("retrieve requires a nonblank query and a positive --limit")
     try:
         sources=load_sources(args.config)
         if "mpml" not in sources: raise ConfigError("Missing mpml source")
@@ -68,6 +78,13 @@ def main(argv:list[str]|None=None)->int:
             report, exit_code = describe(source, args.command, args.query)
             print(json.dumps(report, indent=2))
             return exit_code
+        if args.command in {"index", "retrieve"}:
+            if args.command == "index":
+                report = build(source, args.embed)
+            else:
+                report = retrieve(source, args.query, args.mode, args.limit)
+            print(json.dumps(report, indent=2))
+            return 0
         overrides={}
         for item in args.env:
             if "=" not in item: raise ConfigError("--env requires KEY=VALUE")
@@ -78,7 +95,10 @@ def main(argv:list[str]|None=None)->int:
         result=preflight(source,mpml_args,overrides=overrides)
         print(json.dumps(result.document,indent=2))
         return result.exit_code
-    except (ConfigError,BridgeError,OSError,subprocess.SubprocessError) as exc:
+    except (
+        ConfigError, BridgeError, EmbeddingError, RetrievalError, OSError, UnicodeError,
+        subprocess.SubprocessError,
+    ) as exc:
         print(f"argus: {exc}",file=sys.stderr)
         return 2
 

@@ -1,0 +1,8 @@
+[
+  {"query": "--feed-mode choices", "path": "mpml/spec.py", "heading": "arguments / --feed-mode"},
+  {"query": "What has precedence over TOY_SEED?", "path": "mpml/spec.py", "heading": "precedence / seed"},
+  {"query": "Can BATCH_ZERO happen when the batch size is zero?", "path": "mpml/spec.py", "heading": "rules / BATCH_ZERO"},
+  {"query": "Where do I set the saving directory?", "path": "mpml/spec.py", "heading": "env / TOY_OUTPUT_DIR"},
+  {"query": "Can I pick up again after stopping halfway through?", "path": "docs/reference.md", "heading": "Field guide / Checkpoints"},
+  {"query": "Are Saturdays counted?", "path": "docs/reference.md", "heading": "Field guide / Calendar windows"}
+]

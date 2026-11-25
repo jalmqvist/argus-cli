@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "arguments": [
+    {"flags": ["--feed-mode"], "dest": "feed_mode", "choices": ["archive", "stream"], "default": "archive", "help": "Select the data feed."},
+    {"flags": ["--random-seed"], "dest": "random_seed", "default": 9, "help": "Seed the random generator."},
+    {"flags": ["--batch-limit"], "dest": "batch_limit", "default": 50, "help": "Maximum batch size."}
+  ],
+  "env": [
+    {"name": "TOY_OUTPUT_DIR", "default": "reports", "semantics": "Directory for saving output."},
+    {"name": "TOY_QUIET", "default": false, "semantics": "Suppress progress messages."}
+  ],
+  "precedence": [{"setting": "seed", "order": ["--random-seed", "TOY_SEED", "9"]}],
+  "rules": [{"code": "BATCH_ZERO", "summary": "A batch size of zero is invalid."}],
+  "registries": {"strategies": {"ids": ["ember", "mica"]}},
+  "source_edit_only": [{"name": "RETRY_LIMIT", "category": "network retries"}]
+}

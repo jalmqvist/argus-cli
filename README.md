@@ -4,7 +4,7 @@ Local, privacy-preserving, **read-only** research CLI assistant. An MPML-first p
 project demonstrating deterministic tool integration, local LLMs, structured generation,
 RAG, validation and measured agent reliability.
 
-**Current state:** deterministic MPML lookup and preflight. Argus reads the
+**Current state:** deterministic MPML lookup, preflight, and local retrieval. Argus reads the
 published MPML spec from your checkout and can check a default launch candidate.
 
 ## Install
@@ -54,6 +54,62 @@ directory, interpreter, entrypoint, arguments, overrides, findings, and verifica
 status. `validated` and `validated_with_warnings` describe the preflight result.
 `rejected` and `unverified` return a nonzero status. For a custom candidate, use
 `argus preflight --env KEY=VALUE -- <MPML args>`.
+
+## Retrieve cited MPML evidence
+
+```bash
+argus index
+argus retrieve "What takes precedence over EXPERIMENT_VARIANT?"
+argus retrieve -- --strategy
+```
+
+`argus index` reads the live spec and the Markdown paths in `sources.mpml.documents` in
+`sources.yaml`. It writes `indexes/mpml.json` relative to the working directory.
+The index is gitignored and contains the selected source text. Build and query it from
+the same working directory. Each hit includes a stable chunk ID, the source text, and a
+citation with the repository key, relative path, heading, Git SHA, and dirty state.
+Spec headings identify schema entries. Markdown sections use hash-prefixed headings.
+
+Lexical retrieval uses BM25+ and preserves exact flag and environment tokens as well
+as their component words. To compare it with cosine similarity and reciprocal rank
+fusion, start Ollama on the default loopback port and use a locally installed embedding model.
+
+```bash
+ollama pull nomic-embed-text
+argus index --embed nomic-embed-text
+argus retrieve --mode embedding "How do artifact path overrides work?"
+argus retrieve --mode hybrid "How do artifact path overrides work?"
+argus retrieve --mode all "How do artifact path overrides work?"
+```
+
+`--mode all` returns the three ranked lists for the same query. Each list defaults to
+five results. Only `argus index` writes the artifact or embeds the corpus. Embedding,
+hybrid, and ablation queries send one query embedding request to the local Ollama
+instance. Argus checks the stored model digest before using those vectors.
+
+Retrieval checks the live Git SHA and dirty state, the spec hash, and the selected
+Markdown hashes before returning hits. A changed revision or evidence file requires
+rebuilding with `argus index`, including `--embed MODEL` if using embedding modes.
+A dirty checkout can be indexed, with the dirty state visible in each citation.
+
+### Synthetic hit@5
+
+The held-out fixture contains six questions. A hit means the expected path and
+heading appeared among the first five results.
+
+| Ranking | Hit@5 |
+| --- | ---: |
+| Lexical BM25+ | 5/6 |
+| Embedding cosine | 6/6 |
+| Hybrid | 6/6 |
+
+The fixture uses a synthetic spec, Markdown, and embedding responses. These scores
+measure the retrieval pipeline on the fixture. Live Ollama and MPML retrieval quality
+remain unmeasured.
+
+```bash
+python -m pytest -q -s tests/test_retrieval.py::test_held_out_hit_at_five
+```
 
 ## Key repo files
 
