@@ -1,0 +1,166 @@
+{
+  "argus_commit": "76bfb598180211bb84e49d164f00fb9685f2a484",
+  "ollama_version": "0.40.18",
+  "inference_device": "CPU",
+  "python": "3.12.14",
+  "langchain_ollama": "1.2.0",
+  "langchain_core": "1.8.4",
+  "pydantic": "2.14.4",
+  "index": {
+    "chunks": 139,
+    "embedding_model": "nomic-embed-text",
+    "embedding_digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f"
+  },
+  "matched": 4,
+  "total": 4,
+  "cases": [
+    {
+      "id": "strategy-and-pair",
+      "match": true,
+      "observed": {
+        "verification": "validated",
+        "argv": [
+          "--strategy",
+          "MR32"
+        ],
+        "env": {
+          "ACTIVE_PAIRS": "USDJPY"
+        },
+        "structural_validation": "passed",
+        "preflight_validation": "passed",
+        "intent_status": "unverified",
+        "command_rendered": true,
+        "preflight_codes": []
+      },
+      "elapsed_seconds": 153.4,
+      "model": {
+        "name": "qwen2.5-coder:7b",
+        "digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+        "settings": {
+          "temperature": 0.0,
+          "seed": 42,
+          "num_ctx": 8192,
+          "num_predict": 1100,
+          "timeout_seconds": 300.0
+        }
+      },
+      "source": {
+        "git_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+        "dirty": false,
+        "spec_sha256": "fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a"
+      },
+      "retrieval": {
+        "mode": "hybrid",
+        "limit": 5
+      }
+    },
+    {
+      "id": "explicit-seed",
+      "match": true,
+      "observed": {
+        "verification": "validated",
+        "argv": [
+          "--experiment-seed",
+          "123"
+        ],
+        "env": {},
+        "structural_validation": "passed",
+        "preflight_validation": "passed",
+        "intent_status": "unverified",
+        "command_rendered": true,
+        "preflight_codes": []
+      },
+      "elapsed_seconds": 141.1,
+      "model": {
+        "name": "qwen2.5-coder:7b",
+        "digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+        "settings": {
+          "temperature": 0.0,
+          "seed": 42,
+          "num_ctx": 8192,
+          "num_predict": 1100,
+          "timeout_seconds": 300.0
+        }
+      },
+      "source": {
+        "git_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+        "dirty": false,
+        "spec_sha256": "fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a"
+      },
+      "retrieval": {
+        "mode": "hybrid",
+        "limit": 5
+      }
+    },
+    {
+      "id": "unsupported-order",
+      "match": true,
+      "observed": {
+        "verification": "abstained",
+        "argv": [],
+        "env": {},
+        "structural_validation": "passed",
+        "preflight_validation": "not_run",
+        "intent_status": "unverified",
+        "command_rendered": false,
+        "preflight_codes": []
+      },
+      "elapsed_seconds": 86.6,
+      "model": {
+        "name": "qwen2.5-coder:7b",
+        "digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+        "settings": {
+          "temperature": 0.0,
+          "seed": 42,
+          "num_ctx": 8192,
+          "num_predict": 1100,
+          "timeout_seconds": 300.0
+        }
+      },
+      "source": {
+        "git_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+        "dirty": false,
+        "spec_sha256": "fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a"
+      },
+      "retrieval": {
+        "mode": "hybrid",
+        "limit": 5
+      }
+    },
+    {
+      "id": "dl-proof",
+      "match": true,
+      "observed": {
+        "verification": "abstained",
+        "argv": [],
+        "env": {},
+        "structural_validation": "passed",
+        "preflight_validation": "not_run",
+        "intent_status": "unverified",
+        "command_rendered": false,
+        "preflight_codes": []
+      },
+      "elapsed_seconds": 107.8,
+      "model": {
+        "name": "qwen2.5-coder:7b",
+        "digest": "dae161e27b0e90dd1856c8bb3209201fd6736d8eb66298e75ed87571486f4364",
+        "settings": {
+          "temperature": 0.0,
+          "seed": 42,
+          "num_ctx": 8192,
+          "num_predict": 1100,
+          "timeout_seconds": 300.0
+        }
+      },
+      "source": {
+        "git_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+        "dirty": false,
+        "spec_sha256": "fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a"
+      },
+      "retrieval": {
+        "mode": "hybrid",
+        "limit": 5
+      }
+    }
+  ]
+}

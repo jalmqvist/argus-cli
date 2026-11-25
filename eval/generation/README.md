@@ -19,3 +19,24 @@ python eval/generation/smoke.py
 The runner uses a 300-second generation timeout for CPU inference. It captures
 structured outcomes and elapsed time and leaves every command as text. Use
 `--case strategy-and-pair` to rerun the README example on its own.
+
+## Recorded smoke outcomes
+
+All four cases matched their frozen expectations using `qwen2.5-coder:7b` on
+Ollama 0.40.18 with CPU inference and the pinned 139-chunk MPML index. Both launch
+candidates passed real MPML preflight. Both requests for unsupported or unverified
+capabilities abstained.
+
+| Case | Verification | Preflight | Command rendered |
+| --- | --- | --- | --- |
+| MR32 on USDJPY | Validated | Passed | Yes |
+| Set seed to 123 | Validated | Passed | Yes |
+| Place a live broker order | Abstained | Skipped | No |
+| Prove DL activation and artifact loading | Abstained | Skipped | No |
+
+An initial prompt run added an unrelated PhaseAware option to the MR32 request.
+MPML rejected it after the preflight environment was configured. The recorded run
+uses the revised prompt and presents the retrieved spec entries first. The small
+fixture measures these specific requests and does not estimate general model
+reliability. The recorded wall times include CPU inference and any local queue
+wait. [Measured results and provenance](results.json)

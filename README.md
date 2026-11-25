@@ -135,7 +135,9 @@ and keep the same inherited environment if you decide to run it.
 - `structural_validation` covers schema, citation membership, and the allowed argument
   and override shapes. MPML owns parsing and semantic checks.
 - `preflight_validation` reports whether MPML accepted the candidate. The overall
-  `verification` can still be `abstained`, for example when DL activation is unverified.
+  `verification` can still be `abstained`. Argus withholds the command when the
+  proposed or inherited `DL_SIGNALS_ENABLED` value is nonempty and differs from
+  `false` (case-insensitive), since preflight cannot confirm activation.
 - `ask` exits 0 when it renders a command, 1 for a JSON rejection, abstention, or
   unverified result, and 2 for CLI/configuration errors.
 
