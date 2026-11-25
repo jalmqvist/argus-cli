@@ -1,11 +1,8 @@
 """Deterministic lookup and candidate reporting for MPML's published schema."""
 
-import hashlib
-import json
-
 from argus_cli.adapters.mpml import BridgeError, preflight, spec
 from argus_cli.config import Source
-from argus_cli.provenance import revision
+from argus_cli.provenance import revision, spec_sha256
 
 
 def _parameter(document: dict, name: str) -> dict | None:
@@ -37,7 +34,6 @@ def describe(source: Source, command: str, query: str) -> tuple[dict, int]:
     except (KeyError, TypeError) as exc:
         raise BridgeError("MPML returned an incomplete schema v1 document") from exc
     info = revision(source.root)
-    canonical_spec = json.dumps(document, indent=2, sort_keys=True) + "\n"
     report["provenance"] = {
         "source": "python -m mpml.spec",
         "repository": str(source.root),
@@ -45,7 +41,7 @@ def describe(source: Source, command: str, query: str) -> tuple[dict, int]:
         "git_sha": info.sha,
         "dirty": info.dirty,
         "schema_version": document["schema_version"],
-        "spec_sha256": hashlib.sha256(canonical_spec.encode("utf-8")).hexdigest(),
+        "spec_sha256": spec_sha256(document),
     }
     rejected = report.get("verification") in {"rejected", "unverified"}
     return report, int(rejected)
