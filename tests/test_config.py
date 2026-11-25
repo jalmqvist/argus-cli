@@ -1,6 +1,9 @@
 from pathlib import Path
+
 import pytest
-from argus_cli.config import ConfigError,load_sources
+
+from argus_cli.config import ConfigError, load_sources
+
 
 def test_unset_env_is_actionable(tmp_path:Path)->None:
     p=tmp_path/"sources.yaml"
