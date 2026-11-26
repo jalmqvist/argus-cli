@@ -62,7 +62,46 @@ PYTHON
 
 Expect both intent and effective-configuration blockers even if the probe
 accepts the candidate. Other fields depend on the checkout, index and inherited
-process settings. The optional smoke test was not run for this milestone.
+process settings.
+
+### Maintainer-local real-MPML smoke result — 2026-11-26
+
+After PR #27 was merged, the maintainer ran the documented read-only smoke
+procedure against the configured MPML checkout and provided the console output.
+This is **one observed fixed-candidate validation**, separate from the mocked
+offline suite; it is not an independent natural-language holdout or an experiment
+execution result.
+
+| Observation | Reported value |
+| --- | --- |
+| Candidate SHA-256 | `78e97af5249f6cedd2f78c76e2f6e1d34be0b39b937d50143588e94973ed2aef` |
+| Source revision | `14ad36e3f70a10bb5781b88200e825a717ca402f` |
+| Source dirty | `false` |
+| Spec SHA-256 | `fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a` |
+| Index SHA-256 | `08d5ef289cc367251a475316f43a0f91bfb3202957d0866a72eec3e33f8d4f06` |
+| Extraction coverage | `enforced` (bounded grammar only) |
+| Provenance / inherited environment | `verified` / `unchanged` |
+| Structural validation / citation resolution / setting support | `true` / `true` / `true` |
+| MPML preflight | `accepted`, exit code `0` |
+| Diagnostic codes | `[]` |
+| Material intent / effective configuration | `unresolved` / `unresolved` |
+| Eligibility blockers | `('material_intent', 'effective_configuration')` |
+
+**Interpretation:** The fixed-candidate adapter successfully connected the real
+MPML spec/index verification, candidate structural and evidence checks, stable
+captured environment, and authoritative read-only preflight. The only reported
+blockers were the two deliberately unimplemented independent verification gates.
+This is the expected fail-closed result: clean preflight and `enforced`
+extraction do **not** authorize a manual command. The source and environment
+checks are point-in-time observations, not proof of semantic completeness or
+absence of transient changes. No command was generated, rendered or executed
+by this smoke procedure.
+
+**Evidence provenance:** values transcribed from the maintainer-provided
+stdout on 2026-11-26. No raw inherited environment, private source files,
+broker credentials or model payloads were recorded. The smoke-test stdout
+was not independently reproduced in CI.
+
 M4v2-2C2 owns independent assessment of full material intent and effective
 configuration. A future release path also needs fresh verification at its
 actual release boundary.
