@@ -48,3 +48,6 @@ for the initial 14-case baseline interpretation and the next targeted improvemen
 
 See the [evidence-led paired regression procedure](EVIDENCE_REGRESSION_3C.md)
 for M4v2-3C.
+
+See the [completed M4v2-3C paired local findings and restart checkpoint](PAIRED_FINDINGS_3C.md)
+for the same-fixture before/after comparison, remaining failures and deferred human review.
