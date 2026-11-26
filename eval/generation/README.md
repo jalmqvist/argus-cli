@@ -216,3 +216,60 @@ bytes. Matching case IDs alone cannot make reports compatible. The comparison
 provenance override applies to source, index and retrieval settings. Fixture
 identity, bytes and selected case IDs must always match. An older runner
 version may still be needed to resume an old run under its original manifest.
+
+## M4C-4A paired manual response capture
+
+The separate `manual_capture` runner reads the 14 manual-only IDs and original
+question strings from the archived provisional JSON. It checks both frozen
+file digests and confirms that these cases and the 12 registered cases
+partition the original 26. It performs no scoring or adjudication.
+[Manual review criteria](../../docs/evaluation/M4C_2B_MANUAL_ONLY_CASES.md)
+
+Run from the Argus root with the pinned MPML checkout and verified existing
+index configured through `MPML_REPO` and `MPML_PYTHON`. Install the existing
+`llm` and `agent` extras for live capture and use the same local model, index,
+settings and environment for both arms.
+
+```bash
+python -m eval.generation.manual_capture run manual-m3-01 --workflow single-pass
+python -m eval.generation.manual_capture run manual-m4-01 --workflow agent
+python -m eval.generation.manual_capture packet manual-m3-01 manual-m4-01 review-01
+```
+
+The first two commands run inference locally. Repeat the exact command with
+the same run ID to resume after interruption. The runner saves each completed
+attempt atomically, including timeouts and unavailable reports. Use a new
+run ID to rerun recorded attempts or change provenance. Reports pin the exact
+archived question-source and frozen scored-fixture fingerprints, MPML SHA and
+spec hash, index and model digests, retrieval and generation settings, Argus
+revision, implementation hashes and environment fingerprint. Raw structured
+reports, error categories, and timings are retained locally.
+
+All capture output is gitignored under `reports/local/generation/manual/`:
+
+| Location | Use |
+| --- | --- |
+| `runs/<run-id>.json` | Private raw capture, manifest and resume state. |
+| `packets/<packet-id>/review.json` | Share only this file with the reviewer, alongside the manual review criteria. |
+| `keys/<packet-id>.json` | Private assignment, random seed, and exact input fingerprints. Keep this file for reproducibility. |
+
+The packet command works offline on two complete, provenance-compatible
+captures and assigns Response A/B independently per case using a private
+random seed and HMAC-SHA256. Repeating the packet command with the same
+ID, key and captured bytes regenerates the same packet bytes. Use a new
+packet ID if either report changes. Completion means every question was
+attempted. The packet marks captures that lack an Argus JSON response.
+
+The packet preserves explanation and uncertainty when available, ordered
+settings, citations, final verification and preflight findings. It projects
+these fields from final reports only. Workflow identifiers in prose and known
+extractor boilerplate are neutralized. Raw command strings, implementation
+metadata, stop reasons, intermediate attempts, timing, raw errors, and
+prior benchmark scores stay outside the packet. Proposed argv and env are
+preserved as data. Reviewers may still infer the workflow from substantive
+response behavior, including different abstention patterns.
+
+An early abstention or invalid candidate can leave the Argus explanation
+field empty. The packet preserves that absence. It has no way to recover
+model text that Argus did not export. Review using the existing criteria and
+keep any assessment separate from the raw captures and private key.
