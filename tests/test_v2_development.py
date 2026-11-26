@@ -164,7 +164,8 @@ def test_evidence_audit_separates_missing_retrieval_missing_citation_and_policy(
         assert not strategy_info["value_supported_in_citations"]
         seed_info = audit["settings"]["--experiment-seed"]
         assert seed_info["records_cited"] == 1
-        assert not seed_info["value_supported_in_index"]
+        assert seed_info["value_supported_in_index"]
+        assert seed_info["value_supported_in_citations"]
 
 
 @pytest.fixture
@@ -208,7 +209,7 @@ def local_benchmark(live, tmp_path, monkeypatch):
         monkeypatch.delenv(row["name"], raising=False)
     monkeypatch.setenv("TEST_CREDENTIAL", "inherited-secret-value")
 
-    def generate(question, evidence, model, settings, *, on_model_call):
+    def generate(question, evidence, model, settings, *, on_model_call, preserve_exact_request):
         on_model_call()
         return response(evidence), "test-digest"
 
@@ -269,7 +270,7 @@ def test_candidate_recording_failure_stops_before_preflight(local_benchmark, liv
 def test_runner_scores_wrong_strategy_incorrect_even_when_preflight_accepts(local_benchmark):
     config, directory, model = local_benchmark
 
-    def generate(question, evidence, model, settings, *, on_model_call):
+    def generate(question, evidence, model, settings, *, on_model_call, preserve_exact_request):
         on_model_call()
         return response(
             evidence, argv=["--strategy", "MR70", "--experiment-seed", "57"]

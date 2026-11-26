@@ -19,8 +19,8 @@ from argus_cli.generation import (
     evidence_by_prompt_id,
     generate,
 )
-from argus_cli.retrieval import rank_verified_index
-from argus_cli.v2_answer import _REFERENCE, _report, _route, answer, unavailable
+from argus_cli.retrieval import RetrievalError, rank_verified_index
+from argus_cli.v2_answer import _REFERENCE, _cite, _report, _route, answer, unavailable
 from argus_cli.v2_contract import Citation, Preflight, Provenance, ResponseV2, Settings
 from argus_cli.v2_intent import _UNSAFE_CONTEXT
 from argus_cli.v2_live_validation import (
@@ -39,13 +39,32 @@ _TOPIC = re.compile(
 _PROPOSE = re.compile(
     r"^\s*(?:please\s+)?(?:use|choose|select|pin)\b"
     r"|^\s*(?:i['’]d like|i would like|i want)\s+"
-    r"(?:to (?:use|choose|select|pin|configure)\b|(?:an? |the )?(?:mpml )?configuration\b)"
+    r"(?:(?:this configuration )?to (?:use|choose|select|pin|configure)\b|(?:an? |the )?(?:mpml )?configuration\b)"
     r"|^\s*(?:(?:can|could|would) you )?help me configure\b",
     re.IGNORECASE,
 )
 _UNRESOLVED_REFERENCE = re.compile(
     r"\b(?:that|this|same|previous|other) (?:strategy|variant|seed|configuration)\b", re.IGNORECASE
 )
+_CONFIG_SELECTION = re.compile(
+    r"\bthis configuration to (?:select|use|choose|set) "
+    r"(?:(?:strategy )?(?:MR|TF)\d+|(?:--experiment-seed|seed)[ =]+[+-]?\d+|"
+    r"(?:--experiment-variant|variant)[ =]+[A-Z])\b",
+    re.IGNORECASE,
+)
+_PAIR_REFERENCE = re.compile(r"\b(?:that|this|same|previous|other) pair\b", re.IGNORECASE)
+_ENV_ONLY = re.compile(
+    r"(?<!not )\b(?:only environment overrides|environment(?: overrides)? only|env-only)\b",
+    re.IGNORECASE,
+)
+_SETTING_CUES = {
+    "--strategy": r"\bstrateg(?:y|ies)\b",
+    "--experiment-seed": r"\bseed\b",
+    "--experiment-variant": r"\bvariant\b",
+    "--phaseaware-tf": r"\b(?:trend-following|phaseaware tf)\b",
+    "--phaseaware-mr": r"\b(?:mean-reversion|phaseaware mr)\b",
+    "ACTIVE_PAIRS": r"\bpairs?\b",
+}
 _SETTING_LABELS = {
     "--strategy": "strategy selection",
     "--phaseaware-tf": "PhaseAware trend representative",
@@ -86,7 +105,12 @@ class WorkflowResponse(ResponseV2):
 def _proposal_route(question, route):
     if route == "unsupported" or _UNSAFE_CONTEXT.search(question) or _EXECUTE.search(question):
         return "unsupported"
-    if _REFERENCE.search(question.casefold()) or _UNRESOLVED_REFERENCE.search(question):
+    references = _CONFIG_SELECTION.sub("", question)
+    if (
+        _REFERENCE.search(references.casefold())
+        or _UNRESOLVED_REFERENCE.search(references)
+        or _PAIR_REFERENCE.search(references)
+    ):
         return None
     if _TOPIC.search(question):
         if route in {"launch", "mixed"}:
@@ -94,6 +118,83 @@ def _proposal_route(question, route):
         if _PROPOSE.search(question):
             return "launch"
     return None
+
+
+def _proposal_evidence(question, index, metadata, spec):
+    """Give exact specification records priority within the existing lexical budget."""
+    explicit = set(re.findall(r"--[a-z][a-z0-9-]*|\b[A-Z][A-Z0-9_]+\b", question))
+    targets = set(explicit)
+    for target, cue in _SETTING_CUES.items():
+        if re.search(cue, question, re.IGNORECASE):
+            targets.add(target)
+    for row in spec["precedence"]:
+        channels = row["order"][:2]
+        if set(channels) & targets:
+            targets.update(channels)
+    chunks = index["chunks"]
+    by_id = {chunk["id"]: chunk for chunk in chunks}
+    selected = {}
+    records = []
+    for section, rows in (("arguments", spec["arguments"]), ("env", spec["env"])):
+        for row in rows:
+            names = row["flags"] if section == "arguments" else [row["name"]]
+            if targets.intersection(names):
+                priority = (
+                    not explicit.intersection(names),
+                    bool(_ENV_ONLY.search(question)) and section != "env",
+                )
+                records.append((priority, section, ", ".join(names), row))
+    for _, section, label, row in sorted(records, key=lambda entry: entry[0]):
+        try:
+            citation = _cite(chunks, metadata, section, label, row)
+        except RetrievalError:
+            continue
+        selected[citation.evidence_id] = by_id[citation.evidence_id]
+        if len(selected) == _EVIDENCE_LIMIT:
+            return list(selected.values())
+    for chunk in rank_verified_index(index, _lookup_query(question), "lexical", _EVIDENCE_LIMIT)[
+        "results"
+    ]["lexical"]:
+        selected.setdefault(chunk["id"], chunk)
+        if len(selected) == _EVIDENCE_LIMIT:
+            break
+    return list(selected.values())
+
+
+def _request_findings(question, proposal, spec):
+    """Describe narrow request facts without altering intent or proposal checks."""
+    args = {flag: row for row in spec["arguments"] for flag in row["flags"]}
+    env = {row["name"]: row for row in spec["env"]}
+    if _ENV_ONLY.search(question) and proposal.argv:
+        yield "The request specifies environment overrides only. The proposal includes command-line settings."
+    negated = re.search(r"\b(?:do not|don't|never|exclude|omit|avoid)\b", question, re.IGNORECASE)
+    if (
+        not negated
+        and re.search(r"\b(?:using|use|via|set|with|override)\s+ACTIVE_PAIRS\b", question)
+        and "ACTIVE_PAIRS" not in proposal.env
+        and env.get("ACTIVE_PAIRS", {}).get("scope") == "launch_selector"
+    ):
+        yield "MPML documents ACTIVE_PAIRS as an environment setting. The proposal omitted that override."
+    for flag, pattern, label in (
+        (
+            "--phaseaware-tf",
+            r"(?:--phaseaware-tf[ =]+|trend-following representative to (?:exactly )?)([A-Za-z]{2}\d+)\b",
+            "PhaseAware trend-following role",
+        ),
+        (
+            "--phaseaware-mr",
+            r"(?:--phaseaware-mr[ =]+|mean-reversion representative to (?:exactly )?)([A-Za-z]{2}\d+)\b",
+            "PhaseAware mean-reversion role",
+        ),
+        ("--experiment-variant", r"--experiment-variant[ =]+([A-Za-z])\b", "experiment variant"),
+    ):
+        match = re.search(pattern, question)
+        row = args.get(flag, {})
+        choices = row.get("post_parse_choices") or row.get("choices")
+        if not negated and match and choices is not None and match[1] not in choices:
+            yield f"The requested value is outside the published choices for the {label}."
+            if all(token.partition("=")[0] != flag for token in proposal.argv):
+                yield f"The proposal omitted the requested {label} setting."
 
 
 @dataclass(frozen=True)
@@ -173,6 +274,18 @@ def run(
             1,
         )
 
+    if proposed_route is None and _PAIR_REFERENCE.search(question):
+        return finish(
+            _report(
+                question,
+                "ambiguous",
+                "abstention",
+                "limited",
+                "Which currency pair or pairs should MPML use?",
+            ),
+            1,
+        )
+
     if route == "informational" or proposed_route is None:
         response, code = answer(source, question)
         trace["deterministic_answer"] = code == 0
@@ -181,12 +294,10 @@ def run(
 
     try:
         inherited = MappingProxyType(os.environ.copy())
-        snapshot, index, _ = _snapshot(source)
+        snapshot, index, metadata = _snapshot(source)
         if snapshot.identity.source_dirty:
             raise ValueError("Dirty source")
-        evidence = rank_verified_index(index, _lookup_query(question), "lexical", _EVIDENCE_LIMIT)[
-            "results"
-        ]["lexical"]
+        evidence = _proposal_evidence(question, index, metadata, snapshot.read_spec())
         pinned = {chunk["id"]: chunk for chunk in index["chunks"]}
         if any(pinned.get(chunk["id"]) != chunk for chunk in evidence):
             raise ValueError("Unpinned retrieval result")
@@ -202,7 +313,14 @@ def run(
     generation_start = time.monotonic()
     trace["generation_attempted"] = True
     try:
-        proposal, digest = generate(question, evidence, model, settings, on_model_call=count_call)
+        proposal, digest = generate(
+            question,
+            evidence,
+            model,
+            settings,
+            on_model_call=count_call,
+            preserve_exact_request=True,
+        )
         proposal = Candidate.model_validate(proposal.model_dump())
     except (InvalidCandidateError, ValidationError, AttributeError):
         trace["generation_seconds"] = round(time.monotonic() - generation_start, 6)
@@ -277,6 +395,7 @@ def run(
 
     spec = snapshot.read_spec()
     trace.update(
+        typed_seed_support=report.typed_seed_support,
         structure_valid=result.structure_valid,
         citations_resolved=result.citations_resolved,
         setting_evidence_valid=result.setting_evidence_valid,
@@ -301,6 +420,11 @@ def run(
         for target in heading.partition(" / ")[2].split(", "):
             if target in _SETTING_LABELS:
                 supported.add(_SETTING_LABELS[target])
+    if report.typed_seed_support:
+        details.append(
+            "The cited seed setting supports an integer under the published parser rule."
+        )
+    details.extend(_request_findings(question, proposal, spec))
     if supported:
         details.append(
             f"Published MPML records support the proposed {', '.join(sorted(supported))}."
@@ -321,7 +445,11 @@ def run(
             details.append(f"The proposal {outcome} the recognized request constraints{scope}.")
     details.append(
         {
-            "not_run": "MPML preflight was not run.",
+            "not_run": (
+                "MPML preflight was skipped because argument or override checks failed."
+                if not result.structure_valid
+                else "MPML preflight was skipped because a prerequisite for the read-only check failed."
+            ),
             "unavailable": "MPML preflight was unavailable or returned an unverifiable result.",
             "rejected": "MPML preflight rejected the proposal.",
             "warnings_only": "MPML returned warnings without verified preflight acceptance.",

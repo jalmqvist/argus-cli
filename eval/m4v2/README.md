@@ -45,3 +45,6 @@ for M4v2-3A.
 
 See the [maintainer-local M4v2-3B descriptive findings](FIRST_ATTEMPT_FINDINGS_3B.md)
 for the initial 14-case baseline interpretation and the next targeted improvements.
+
+See the [evidence-led paired regression procedure](EVIDENCE_REGRESSION_3C.md)
+for M4v2-3C.

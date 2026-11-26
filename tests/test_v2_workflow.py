@@ -57,7 +57,7 @@ def response(evidence, **changes):
 
 @pytest.fixture
 def model(monkeypatch):
-    def generate(question, evidence, model, settings, *, on_model_call):
+    def generate(question, evidence, model, settings, *, on_model_call, preserve_exact_request):
         on_model_call()
         return response(evidence), "digest-test"
 
@@ -106,7 +106,7 @@ def test_accepted_proposal_is_qualified_and_private(live, model):
         "Some parts of the request could not be interpreted independently." in report["explanation"]
     )
     serialized = json.dumps(report)
-    for secret in ("MODEL_PRIVATE_PROSE", "private/output", "--experiment-seed", '"argv"', '"env"'):
+    for secret in ("MODEL_PRIVATE_PROSE", "private/output", '"argv"', '"env"'):
         assert secret not in serialized
     assert live[2].call_args.args[0][-4:] == ["--strategy", "TF40", "--experiment-seed", "57"]
 
@@ -126,7 +126,7 @@ def test_accepted_proposal_is_qualified_and_private(live, model):
     ],
 )
 def test_untrusted_candidate_cannot_leak_or_probe(live, model, mutation, label):
-    def generate(question, evidence, model, settings, *, on_model_call):
+    def generate(question, evidence, model, settings, *, on_model_call, preserve_exact_request):
         on_model_call()
         return response(evidence, **mutation), "digest-test"
 
@@ -149,7 +149,7 @@ def test_untrusted_candidate_cannot_leak_or_probe(live, model, mutation, label):
 
 
 def test_wrong_canonical_strategy_is_flagged_even_if_preflight_accepts(live, model):
-    def generate(question, evidence, model, settings, *, on_model_call):
+    def generate(question, evidence, model, settings, *, on_model_call, preserve_exact_request):
         on_model_call()
         return response(evidence, argv=["--strategy", "MR70"]), "digest-test"
 
@@ -165,10 +165,18 @@ def test_unrelated_markdown_cannot_attest_settings(live, model, monkeypatch):
     monkeypatch.setattr(
         v2_workflow,
         "rank_verified_index",
-        lambda index, *_: {"results": {"lexical": index["chunks"]}},
+        lambda index, *_: {
+            "results": {
+                "lexical": [
+                    chunk
+                    for chunk in index["chunks"]
+                    if chunk["citation"]["path"] == "reference.md"
+                ]
+            }
+        },
     )
 
-    def generate(question, evidence, model, settings, *, on_model_call):
+    def generate(question, evidence, model, settings, *, on_model_call, preserve_exact_request):
         on_model_call()
         doc = next(
             f"E{pos}"
@@ -306,3 +314,153 @@ def test_qualified_explanation_names_recognized_matches_without_proposed_values(
     assert "57" not in explanation
     assert "TF40" not in explanation
     assert "MODEL_PRIVATE_PROSE" not in json.dumps(report)
+
+
+@pytest.fixture
+def role_spec(live):
+    source, spec, bridge = live
+    spec["arguments"].extend(
+        [
+            {
+                "flags": ["--phaseaware-tf"],
+                "action": "store",
+                "nargs": None,
+                "post_parse_choices": ["TF40"],
+            },
+            {
+                "flags": ["--phaseaware-mr"],
+                "action": "store",
+                "nargs": None,
+                "post_parse_choices": ["MR70"],
+            },
+            {
+                "flags": ["--experiment-variant"],
+                "action": "store",
+                "nargs": None,
+                "choices": ["A", "B"],
+            },
+        ]
+    )
+    spec["env"].extend(
+        [
+            {"name": "ACTIVE_PAIRS", "scope": "launch_selector", "parser": "csv"},
+            {"name": "EXPERIMENT_VARIANT", "scope": "launch_selector", "parser": "enum"},
+        ]
+    )
+    spec["precedence"].append(
+        {
+            "setting": "experiment_variant",
+            "order": ["--experiment-variant", "EXPERIMENT_VARIANT", "A"],
+        }
+    )
+    retrieval.build(source, None)
+    return source, spec, bridge
+
+
+def test_self_contained_configuration_reaches_one_proposal(live, model):
+    report, _ = request(
+        live, "I'd like this configuration to select strategy MR32 and leave everything else alone."
+    )
+    assert report["workflow"]["model_calls"] == model.call_count == 1
+
+
+def test_policy_still_asks_for_missing_pair(live, model):
+    report, _ = request(live, "Could you help me configure MPML using that pair from before?")
+    assert "Which currency pair" in report["explanation"]
+    model.assert_not_called()
+
+
+def test_requested_spec_records_displace_lower_priority_lexical_docs(role_spec, monkeypatch):
+    source, spec, _ = role_spec
+    (source.root / "reference.md").write_text(
+        "\n".join(f"## Example {i}\nMPML seed variant phaseaware pair filter" for i in range(10))
+    )
+    retrieval.build(source, None)
+    _, index, metadata = v2_workflow._snapshot(source)
+    docs = [chunk for chunk in index["chunks"] if chunk["citation"]["path"] == "reference.md"]
+    monkeypatch.setattr(
+        v2_workflow, "rank_verified_index", lambda *_: {"results": {"lexical": docs[:8]}}
+    )
+    evidence = v2_workflow._proposal_evidence(
+        "Prepare MPML with both PhaseAware roles: trend-following TF40, mean-reversion MR70; "
+        "use only environment overrides for seed 57, variant B and ACTIVE_PAIRS.",
+        index,
+        metadata,
+        spec,
+    )
+    assert len(evidence) == 8
+    assert {
+        "arguments / --phaseaware-tf",
+        "arguments / --phaseaware-mr",
+        "arguments / --experiment-seed",
+        "env / EXPERIMENT_SEED",
+        "env / EXPERIMENT_VARIANT",
+        "env / ACTIVE_PAIRS",
+    } <= {chunk["citation"]["heading"] for chunk in evidence}
+    assert evidence[-1]["citation"]["path"] == "reference.md"
+    assert all(chunk in index["chunks"] for chunk in evidence)
+
+
+@pytest.mark.parametrize(
+    ("question", "argv", "expected"),
+    [
+        (
+            "Prepare an MPML recipe using only environment overrides for seed 57.",
+            ["--experiment-seed", "57"],
+            "includes command-line settings",
+        ),
+        (
+            "Prepare a launch recipe using exactly --experiment-variant Z.",
+            ["--experiment-variant", "Z"],
+            "outside the published choices for the experiment variant",
+        ),
+        (
+            "I'd like a configuration that sets the PhaseAware trend-following representative to exactly MR70.",
+            ["--phaseaware-mr", "MR70"],
+            "omitted the requested PhaseAware trend-following role",
+        ),
+        (
+            "Prepare a launch recipe using ACTIVE_PAIRS=EURJPY.",
+            ["--invalid-flag"],
+            "omitted that override",
+        ),
+    ],
+)
+def test_specific_explanations_explain_failures_without_releasing_settings(
+    role_spec, model, question, argv, expected
+):
+    def generate(question, evidence, model, settings, *, on_model_call, preserve_exact_request):
+        assert preserve_exact_request
+        on_model_call()
+        return response(evidence, argv=argv, evidence_ids=["E1"]), "digest-test"
+
+    model.side_effect = generate
+    report, _ = request(role_spec, question)
+    assert expected in report["explanation"]
+    assert report["recipe_status"] == "withheld"
+    if "unsupported arguments" in report["explanation"]:
+        assert "preflight was skipped" in report["explanation"]
+    serialized = json.dumps(report["explanation"])
+    assert "--invalid-flag" not in serialized
+    assert "--phaseaware-mr" not in serialized
+    assert "MR70" not in serialized
+
+
+def test_retrieved_seed_without_model_citation_is_not_attested(live, model):
+    def generate(question, evidence, model, settings, *, on_model_call, preserve_exact_request):
+        on_model_call()
+        assert any(
+            item["citation"]["heading"] == "arguments / --experiment-seed" for item in evidence
+        )
+        identifier = next(
+            f"E{pos}"
+            for pos, item in enumerate(evidence, 1)
+            if item["citation"]["heading"] == "arguments / --strategy"
+        )
+        return response(evidence, evidence_ids=[identifier]), "digest-test"
+
+    model.side_effect = generate
+    report, _ = request(live)
+    assert not report["workflow"]["typed_seed_support"]
+    assert not report["workflow"]["setting_evidence_valid"]
+    assert all(cite["heading"] != "arguments / --experiment-seed" for cite in report["citations"])
