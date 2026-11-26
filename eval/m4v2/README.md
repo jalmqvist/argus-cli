@@ -30,3 +30,6 @@ for M4v2-2A.
 
 See the [offline candidate evaluation fixture and results](AUTHORIZATION_DEVELOPMENT.md)
 for M4v2-2B.
+
+See the [trusted live validation boundary and smoke procedure](LIVE_VALIDATION.md)
+for M4v2-2C1.
