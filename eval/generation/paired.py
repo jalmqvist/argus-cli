@@ -2,6 +2,7 @@
 
 from collections import Counter
 
+from .datasets import DEFAULT_DATASET
 from .scoring import latency_summary
 from .scoring import summarize as historical_summary
 
@@ -119,6 +120,11 @@ def _case_metrics(attempt, score, case, cap):
 
 
 def summarize(run, dataset, dataset_hash):
+    manifest = run["manifest"]
+    if manifest.get("dataset_id", DEFAULT_DATASET) != dataset.get("fixture_id", DEFAULT_DATASET):
+        raise ValueError("The report fixture identity does not match the selected dataset")
+    if "dataset_version" in manifest and manifest["dataset_version"] != dataset.get("version"):
+        raise ValueError("The report fixture version does not match the selected dataset")
     result = historical_summary(run, dataset, dataset_hash)
     if workflow(run["manifest"]) != "agent":
         return result
@@ -297,6 +303,7 @@ def compare(single, agent, dataset, dataset_hash, *, allow_provenance_mismatch=F
         "paired_cases": len(pairs),
         "dataset_total": left["dataset_total"],
         "dataset_sha256": dataset_hash,
+        "dataset_id": dataset.get("fixture_id", DEFAULT_DATASET),
         "agent_workflow": after["agent"],
         "provenance_mismatches": mismatches,
         "configuration_differences_or_unknowns": differences,
