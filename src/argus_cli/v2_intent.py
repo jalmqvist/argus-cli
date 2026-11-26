@@ -83,6 +83,7 @@ class Consistency:
     violated: tuple[Requirement, ...]
     unresolved: tuple[UnresolvedRequirement, ...]
     candidate_issues: tuple[str, ...]
+    candidate_targets: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -443,4 +444,5 @@ def check_candidate(
         tuple(violated),
         tuple(interpretation.analysis.unresolved_material),
         tuple(issues),
+        tuple(actual),
     )

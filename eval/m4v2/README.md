@@ -27,3 +27,6 @@ See the [response and routing contract](../../docs/architecture/M4_V2_RESPONSE_C
 
 See the [offline intent extraction fixture and results](INTENT_DEVELOPMENT.md)
 for M4v2-2A.
+
+See the [offline candidate evaluation fixture and results](AUTHORIZATION_DEVELOPMENT.md)
+for M4v2-2B.
