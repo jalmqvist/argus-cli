@@ -230,17 +230,43 @@ def test_env_changed_before_probe_skips_invocation(live, monkeypatch):
     run.assert_not_called()
 
 
-def test_inherited_values_redacted_from_diagnostics(live, monkeypatch):
+@pytest.mark.parametrize("echo", ["inherited", "override", "path", "mixed"])
+def test_sensitive_values_redacted_from_diagnostics(live, monkeypatch, echo):
     source, _, run = live
     secret = "avoid-reporting-this-value"
+    override = "sensitive-explicit-value"
+    path = "/private/évaluation/run's output"
     monkeypatch.setenv("TOY_SECRET", secret)
-    run.return_value = completed(2, [{**_WARNING, "message": f"Echoed {secret!r}."}])
-    report = v2_live_validation.assess_fixed_candidate(_QUESTION, candidate(), source)
+    settings = candidate()
+    settings.env["EXPERIMENT_SEED"] = override
+    settings.argv.extend([f"--output-dir={path}"] if echo == "mixed" else ["--output-dir", path])
+    echoed = {
+        "inherited": [secret],
+        "override": [override],
+        "path": [path],
+        "mixed": [secret, override, path],
+    }[echo]
+    issue = {
+        **_WARNING,
+        "source": f"Echo source: {echoed[0]}",
+        "message": f"Echoed {', '.join(ascii(value) for value in echoed)}.",
+    }
+    run.return_value = completed(2, [issue])
+    report = v2_live_validation.assess_fixed_candidate(_QUESTION, settings, source)
+
+    assert run.call_args.args[0][3:] == settings.argv
+    assert run.call_args.kwargs["env"]["TOY_SECRET"] == secret
+    assert run.call_args.kwargs["env"]["EXPERIMENT_SEED"] == override
     assert report.diagnostics_redacted
     assert report.evaluation.preflight.outcome == "warnings_only"
+    assert report.preflight_exit_code == 2
     assert report.preflight_issues[0].code == _WARNING["code"]
-    assert secret not in repr(report)
+    assert report.preflight_issues[0].severity == _WARNING["severity"]
     assert "[redacted]" in report.preflight_issues[0].message
+    for rendered in (repr(report), json.dumps(asdict(report), default=str, ensure_ascii=False)):
+        for sensitive in (*echoed, "private stderr"):
+            assert sensitive not in rendered
+            assert ascii(sensitive)[1:-1] not in rendered
 
 
 @pytest.mark.parametrize("evidence", ["missing", "unrelated", "invented", "contradictory"])

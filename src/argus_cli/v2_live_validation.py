@@ -134,10 +134,20 @@ def _setting_support(index, metadata, spec, question, values):
     return cited_ids, tuple(support)
 
 
-def _scrubber(inherited):
-    # MPML may echo a failing inherited value or a private path in its diagnostics.
-    values = {value.strip() for value in inherited.values() if value.strip()}
-    variants = values | {ascii(value)[1:-1] for value in values}
+def _scrubber(inherited, candidate: Settings):
+    # MPML may echo environment values or paths supplied as split or equals-form argv.
+    argv_values = [
+        token.partition("=")[2] if re.match(r"--|-[A-Za-z][^=]*=", token) else token
+        for token in candidate.argv
+    ]
+    values = {
+        value.strip()
+        for value in (*inherited.values(), *candidate.env.values(), *argv_values)
+        if value.strip()
+    }
+    variants = (
+        values | {repr(value)[1:-1] for value in values} | {ascii(value)[1:-1] for value in values}
+    )
     pattern = (
         re.compile(
             "|".join(
@@ -168,7 +178,7 @@ def _probe(source, candidate, inherited):
         CapturedIssue(**{key: row[key] for key in CapturedIssue.__annotations__})
         for row in result.document["issues"]
     )
-    scrub = _scrubber(inherited)
+    scrub = _scrubber(inherited, candidate)
     issues = tuple(
         CapturedIssue(scrub(issue.code), issue.severity, scrub(issue.source), scrub(issue.message))
         for issue in original
