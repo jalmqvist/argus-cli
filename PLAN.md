@@ -1,243 +1,191 @@
-# Argus CLI — Implementation Plan
+# Argus CLI — Implementation Plan and Research Roadmap
 
-**Status:** Updated 2026-11-26 · MPML-first MVP · local-first portfolio project · M0–M3.5 complete · M4A design
+**Status:** Updated 2026-11-26 · MPML-first, local-first, read-only · M0–M4C complete · M4v2-0 through M4v2-2B complete · next: M4v2-2C1
 
-## 1. Purpose and scope
+## 1. Purpose, scope and success criteria
 
-Argus is a **local, privacy-preserving, read-only RAG/agent assistant** that answers
-"How do I run this research experiment?" with an evidence-grounded, validated launch
-recipe. The user manually executes the proposed command; Argus never launches research
-experiments. The application should showcase local LLM integration, retrieval engineering,
-LangChain/LangGraph orchestration, structured output, tool constraints, evaluation, and
-reproducibility—not just a chat interface.
+Argus is a **local, privacy-preserving, read-only research assistant** for understanding how to configure and manually launch experiments in MPML. It combines authoritative MPML configuration interfaces, retrieval, optional local LLM generation, structured validation and reproducible evaluation. It **does not execute experiments or trading orders**. MSML, BSVE and MRML remain possible future source adapters, not current MVP dependencies.
 
-**MVP target: MPML only.** MSML, BSVE and MRML are explicitly supported as future source
-adapters; no need to import/parse their code or define their commands in the first MVP.
-The first useful MPML workflow is recalling valid arguments and environment overrides,
-including the less obvious differences between a baseline and DL request.
+The product now has two distinct potential outputs:
 
-### MVP success criteria
+1. **Grounded explanation:** a factual account of documented MPML settings, scope, defaults, precedence, diagnostic meanings or limitations, with verified provenance and citations. No runnable command is released.
+2. **Verified manual launch recipe:** exact ordered argv and environment overrides, released only after independent evidence, structural, full material-intent, effective-configuration, provenance and authoritative MPML preflight gates succeed. A passing preflight **alone does not establish intent correctness**, execution, DL activation or artifact loading.
 
-- For a natural-language MPML launch question, return: repository, cwd, interpreter,
-  entrypoint, ordered argv tokens, env overrides, explanation, source citations, source SHA,
-  preflight findings, and an explicit verification status.
-- No invented flags; every answer validated against `mpml.preflight` using real process env.
-- Report warnings accurately, including strict DL booleans and artifacts; never promise that
-  a clean preflight guarantees DL activation or successful experiment execution.
-- Report retrieval hit@1 and hit@5, command validity, intent match, warning accuracy, abstention,
-  repair count, latency, and the differences between the deterministic baseline and RAG agent.
-- Public clone can run CI tests and toy adapter without private code, data or Ollama.
-  A separate documented local demo with Ollama should be reproducible when Ollama/models
-  are installed. CI does not need to download a multi-GB model.
+**Near-term success** is not simply more answered questions. It is greater completion of genuinely supported tasks without incorrect command release, while preserving honest withholding when evidence or intent remains unresolved. Separate explanatory-answer completion from recipe correctness and report false withholding, incorrect commands, uncertainty, calls and latency.
 
-### Non-goals (MVP)
+### Invariant boundaries
 
-- Experiment execution, trading orders, broker credentials, or mutating MPML state.
-- Artifact loading or verified DL activation (MPML preflight is intentionally limited).
-- Science/research strategy advice; dataset analysis; automated backtests.
-- Full repository-independent arbitrary argparse introspection before supporting MPML.
-- Web UI, hosted LLM APIs, multi-agent collaboration, cloud deployment.
+- Argus may invoke only narrowly allowed, read-only MPML metadata and preflight interfaces. Never call MPML `main.py`, open broker positions, run experiments or load prediction artifacts.
+- Ollama model output, retrieved text and questions are untrusted data; none can confer authorization or bypass validation.
+- Commands are **for manual execution only**, escaped by a trusted renderer after all release checks; proposed unapproved settings belong in private traces, not user-facing ready-to-run recipes.
+- No real market/sentiment datasets, broker credentials, local source clones or private review-mapping keys in public CI or repository artifacts.
+- An MPML spec or index change requires fresh verified provenance. Dirty checkout behavior varies by workflow: v2 grounded answers and candidate authorization currently require clean provenance; historical M3/M4 v1 reporting remains unchanged.
 
-## 2. Authoritative MPML integration boundary
+## 2. Authoritative MPML integration
 
-The MPML launch-surface refactor is **complete and merged**:
+The MPML launch-surface refactor is complete:
 
-| PR | Capability | Merge SHA |
-|---|---|---|
-| [#97](https://github.com/jalmqvist/market-phase-ml/pull/97) | Parser extraction and import-side-effect isolation | `de08b701cd2bec86715a8b84595fdef3170c5a4d` |
-| [#98](https://github.com/jalmqvist/market-phase-ml/pull/98) | `python -m mpml.preflight` | `f0850084dd6075608b38d588628812347c2f4686` |
-| [#99](https://github.com/jalmqvist/market-phase-ml/pull/99) | `python -m mpml.spec`, generated reference and tests | `14ad36e3f70a10bb5781b88200e825a717ca402f` |
+| MPML PR | Interface / capability | Reference |
+| --- | --- | --- |
+| [#97](https://github.com/jalmqvist/market-phase-ml/pull/97) | CLI parser isolation and import-side-effect characterization | `de08b701cd2bec86715a8b84595fdef3170c5a4d` |
+| [#98](https://github.com/jalmqvist/market-phase-ml/pull/98) | Versioned JSON preflight and environment handling | `f0850084dd6075608b38d588628812347c2f4686` |
+| [#99](https://github.com/jalmqvist/market-phase-ml/pull/99) | `mpml.spec` and generated CLI reference | `14ad36e3f70a10bb5781b88200e825a717ca402f` |
 
-Live source of truth, in priority order:
+Evidence priority: **MPML's live `python -m mpml.spec`** for the authoritative launch inventory; **`python -m mpml.preflight`** for the exact proposed configuration and inherited environment; the generated `docs/CLI_REFERENCE.md` and architecture documentation for explanation; historical audits only as context. Do not duplicate MPML's parser or its preflight rules in Argus.
 
-1. MPML's **own** `python -m mpml.spec` JSON (schema version 1) for arguments, registry,
-   environment inventory, precedence and preflight issue-code descriptions.
-2. MPML's **own** `python -m mpml.preflight <argv>` to validate using its interpreter,
-   cwd and caller-supplied process environment (JSON issues; nonzero when errors).
-3. MPML `docs/CLI_REFERENCE.md` and
-   `docs/architecture/MPML_LAUNCH_SURFACE_REFACTOR.md` for explanatory retrieval.
-4. The historical launch audit as context, not as a modern replacement for preflight.
+Use the MPML interpreter, repository cwd, bounded subprocess calls with `shell=False`, exact candidate argv and explicit environment overrides. Capture revision, dirty state, spec/index hashes and provenance. The pinned scientific baseline `gen1_A` walk-forward CSV parity across the MPML refactor applies to that selected configuration only, not to all strategies or DL variants.
 
-**Do not rebuild modern MPML's argparse/environment AST parser or duplicate the 15
-preflight rules in Argus.** This supersedes those components of the original plan.
-AST-based CLI discovery is a later fallback for MSML/BSVE/MRML, where no equivalent
-machine-readable spec exists yet.
+## 3. Implemented workflows and current architecture
 
-The target interpreter is MPML's venv, not Argus's venv. Invoke spec/preflight with a
-fixed list of allowed module names, `subprocess.run([...], shell=False)`, timeout and
-captured output. The process cwd is the MPML repo root. Set candidate environment
-variables on that subprocess; don't inject a fake env object into MPML. Do not call
-`main.py`, load prediction data or mutate caches.
+| Workflow | Current behavior | Main limitation |
+| --- | --- | --- |
+| `argus inspect`, `argus explain`, `argus recipe defaults` | Deterministic MPML specification lookup and defaults preflight | Exact-topic and spec scope; no experiment outcomes |
+| `argus retrieve` | Provenance-aware BM25+, embeddings and hybrid retrieval | Retrieval relevance is not semantic correctness |
+| `argus ask` (M3) | Local single-pass structured recipe proposal, citation/structure checks, preflight and manual renderer | Can produce misleading proposals or incorrect intent despite clean preflight |
+| `argus ask --agent` (M4 v1) | Opt-in bounded LangGraph with explicit-intent gate and at most three reserved generation calls | Anchored intent coverage gate withheld even many valid natural-language requests |
+| `argus ask --agent-v2` (M4v2-1) | Opt-in deterministic, source-verified explanatory answer path | Narrow informational routing; **never** releases candidate settings or commands |
+| `v2_intent.py` (M4v2-2A) | Offline compositional extraction with spans, unresolved material and separate candidate checking | Bounded grammar; `enforced` does not prove complete intent |
+| `v2_authorization.py` (M4v2-2B) | Offline candidate and trusted-observation evaluation, bound to settings, request, source/index and inherited env | Trusted live producers, full-intent verification and release checks **not integrated** |
 
-Record MPML `git rev-parse HEAD`, dirty state, generated spec hash and config/model info.
-Treat stale indexed knowledge explicitly; never silently claim the index covers another
-revision. Pin the MPML integration profile to schema version 1 and fail with a useful
-message for unknown versions. A dirty MPML worktree is provenance metadata, not by itself
-an error; a dirty source invalidates claims that HEAD alone describes local content.
+**Important:** There is **no v2 recipe-generation/release path in production yet**. Offline eligibility is not a reusable authorization token. M3 and M4 v1 remain available for historical comparability and are not silently replaced by v2.
 
-### Verified scientific compatibility (scope-limited)
+The versioned `argus-response-v2.0` contract separates `response_kind`, `answer_status`, `recipe_status`, `intent_coverage` and `material_constraints_status`. `command` and public `settings` are null except for an independently authorized validated recipe. See [response contract](docs/architecture/M4_V2_RESPONSE_CONTRACT.md), [M4 v2 design](docs/architecture/ARGUS_M4_V2_DESIGN.md) and [offline evaluation catalog](eval/m4v2/README.md).
 
-The post-refactor `gen1_A` baseline CSV
-`walkforward_results_per_fold__baseline.csv` was byte-identical to the earlier baseline
-between `de08b701cd2bec86715a8b84595fdef3170c5a4d` and
-`14ad36e3f70a10bb5781b88200e825a717ca402f`. The `experiment_manifest.json`
-changed only in git_sha, run_id and timestamp_utc. This validates that selected baseline
-cell, not every DL/strategy combination or artifact compatibility.
+## 4. Completed milestones and evidence
 
-## 3. Product architecture
+| Milestone | Status and evidence |
+| --- | --- |
+| **M0** Foundation | Complete. Packaging, CLI/config, restricted bridge, ADRs and CI. [PR #2](https://github.com/jalmqvist/argus-cli/pull/2). |
+| **M1** MPML deterministic lookup | Complete. `inspect`, `explain`, defaults recipe and provenance. [PR #3](https://github.com/jalmqvist/argus-cli/pull/3). |
+| **M2** Retrieval | Complete. Structured spec, indexed documents, lexical/embedding/hybrid ranking and index verification. [PR #4](https://github.com/jalmqvist/argus-cli/pull/4). |
+| **M2.5** Retrieval evaluation | Complete. Frozen 20-question MPML retrieval benchmark; results in `eval/retrieval/`. |
+| **M3** Local generation | Complete. Structured single-pass local Ollama recipe workflow and preflight. [PR #7](https://github.com/jalmqvist/argus-cli/pull/7). |
+| **M3.5** Baseline evaluation | Complete. Frozen 20-case, three-model evaluation. [PR #8](https://github.com/jalmqvist/argus-cli/pull/8), [PR #9](https://github.com/jalmqvist/argus-cli/pull/9). |
+| **M4A/B** Bounded agent | Complete. M4 v1 LangGraph design, opt-in orchestration, repair and offline gates. See [ADR 0004](docs/adr/0004-bounded-langgraph-orchestration.md). |
+| **M4C** Paired and independent evaluation | Complete. Frozen 20-case regression reference; independent 26-question holdout split into 12 mechanically scored and 14 blindly reviewed cases. Findings in `docs/evaluation/`. |
+| **M4v2-0** Response/routing contracts | Complete. Isolated typed contracts and synthetic acceptance cases. [PR #22](https://github.com/jalmqvist/argus-cli/pull/22). |
+| **M4v2-1** Explanatory answer path | Complete. Opt-in deterministic cited answers, clean source/index verification, no model/preflight/command. [PR #23](https://github.com/jalmqvist/argus-cli/pull/23). |
+| **M4v2-2A** Compositional intent | Complete. Offline requirement extraction, explicit unresolved spans and independent candidate consistency. [PR #24](https://github.com/jalmqvist/argus-cli/pull/24). |
+| **M4v2-2B** Offline authorization boundary | Complete. Bound offline structural/evidence/material/preflight observations and mutation tests. [PR #25](https://github.com/jalmqvist/argus-cli/pull/25). |
 
-M2 supplies retrieval. M3 provides the current single-pass generation and validation
-workflow. The planned opt-in M4B graph adds explicit intent checks and bounded
-repair around those components. [M4A architecture decision](docs/adr/0004-bounded-langgraph-orchestration.md)
+### M3/M4C evaluation conclusions (historical, not v2 performance)
 
-```text
-verified MPML spec and docs -> existing index and retrieval -> local structured generation
-    -> structural and citation validation -> MPML preflight when eligible -> intent check
-    -> manual recipe, rejection, abstention, or bounded repair
-```
+- M3.5 frozen 20: Qwen **12 pass / 7 fail / 1 review**, Gemma **11 / 8 / 1**, Llama **6 / 14 / 0**. Clean preflight sometimes coincided with wrong intent.
+- M4 v1 versus M3 on the frozen 20: M4 v1 **9 pass / 11 fail**, M3 **12 pass / 7 fail / 1 review**. Historical comparison is a development/regression reference, not an independent holdout.
+- Independent mechanical holdout (**12 questions**): M3 **7 pass / 4 fail / 1 review**; M4 v1 **0 pass / 12 fail**, with zero model calls. All M4 requests were stopped by deterministic intent coverage before generation/preflight.
+- Independent manual-only subset (**14 questions**, blinded then unblinded): M3 **2 correct / 6 partial / 6 incorrect**; M4 v1 **0 correct / 0 partial / 14 incorrect**, all early abstentions without substantive explanations. Do **not** pool manual scores with machine pass rates or rank by dimension-point sums that award safety credits to abstention.
+- These 26 independent cases have now been exposed for diagnostic analysis. Preserve the frozen reports, gold and grading methodology. They are **not** an untouched holdout for M4 v2.
 
-#### Data / evidence tiers
+See [M4C-3 machine findings](docs/evaluation/M4C_3_HOLDOUT_PAIRED_FINDINGS.md), [M4C-4 blind grade audit](docs/evaluation/M4C_4B_BLINDED_GRADE_AUDIT.md) and [M4C-4 combined findings](docs/evaluation/M4C_4_UNBLINDED_AND_COMBINED_FINDINGS.md).
 
-- **Tier 1 structured:** MPML spec JSON; prioritize exact argument and env facts.
-- **Tier 2 text:** generated CLI reference, roadmap, audited technical docs; split by
-  heading, include file paths and Git SHA, reserve short excerpts as citations.
-- **Tier 3 local validation:** preflight, invoked *after* structured candidate generation.
-- **Local-only evidence:** optional experiment recipes/logs used to build private evals,
-  never automatically uploaded or committed.
+### M4 v2 development measurements (synthetic only)
 
-#### Structured recipe contract
+| Milestone | Recorded synthetic result | Interpretation limit |
+| --- | --- | --- |
+| v2-0 | 23 acceptance cases; 254 offline tests at PR creation | Contract and injected-observation consistency, **not** routing quality |
+| v2-1 | 23/23 synthetic expected routes, 5 grounded answers, 18 withheld; 296 offline tests after routing correction | Bounded deterministic explanation coverage, **not** independent holdout improvement |
+| v2-2A | 33/33 requirement precision and recall, 26/26 coverage labels; 0/11 false enforced; 0/21 false candidate acceptances; 0/12 false rejections; 302 offline tests | Synthetic grammar characterization, **not** semantic completeness |
+| v2-2B | 39/39 blocker sets, 2 synthetic eligible and 37 withheld (six with unresolved material intent); 13/13 invalidating mutations blocked; 361 offline tests | Evaluates **supplied trusted observations**, not live authorization performance |
 
-M3 returns trusted source configuration, ordered `argv`, `env`, explanation,
-resolved citations, uncertainty and verification. The model proposes settings
-and evidence IDs. Argus renders an escaped manual command only after validation.
-M4B adds independently checked explicit intent constraints and attempt history.
-[Structured generation trust boundary](docs/adr/0003-structured-generation.md)
+Counts are recorded snapshots of milestone validation runs, **not cumulative current test totals** and not estimates of real-world rates.
 
-#### Validation states
+## 5. Forward roadmap — prioritized sequence
 
-- `validated`: structured candidate + preflight success without errors, but not a run.
-- `validated_with_warnings`: preflight success with warnings; explain impact on intent.
-- `rejected`: parse or project validation error; bounded repair may retry.
-- `unverified`: stale source/index, incompatible schema, unavailable MPML or uncertain
-  artifact behavior.
-- `abstained`: insufficient evidence for a trustworthy command.
+### M4v2-2C1 — Trusted live adapter integration (**next**)
 
-Preflight can be clean when artifact loading later fails. Distinguish *launch-surface*
-validation from *intent satisfaction* and *experiment success*. A request to **enable DL**
-must not be presented as fulfilled merely because `DL_SIGNALS_ENABLED=true` parses.
+**Goal:** Connect verified MPML source/index, exact candidate validation, citation resolution/support, inherited environment capture and authoritative preflight observations to `v2_authorization.evaluate()` using trusted in-process adapters. Begin with **fixed, sanitized candidate inputs**, not model generation.
 
-### Technology choice
+**Requirements**
 
-- Python 3.12, `pytest`, Ruff, GitHub Actions; `pyproject.toml` packaging and `argus` CLI.
-- Ollama local-only. Start with a 7–8B available model; make model name configurable.
-  Verify availability and structured-output quality before choosing a production default.
-- M2 retrieval uses a local JSON index, BM25+, and embedding cosine similarity via local
-  Ollama. Lexical retrieval preserves exact option and environment tokens. Hybrid retrieval
-  uses reciprocal rank fusion. Consider Chroma/FAISS only if evaluation justifies it.
-- M3 uses `langchain-ollama`/LangChain for structured generation over the existing retrieval
-  layer, with Pydantic schema validation, citation checks, and deterministic rendering.
-- M4B plans an opt-in LangGraph workflow with a maximum of two additional generation attempts.
-- Pin exact resolved dependencies in a lock file after the first functioning installation.
+- Freeze one candidate and request interpretation, spec snapshot, evidence ID set and inherited environment; bind every producer observation to the same hashes.
+- Use existing structure and preflight interfaces rather than reimplementing MPML parsing; prevent stale or model-authored observation records from asserting `trusted_adapter` authority.
+- Define conservative deterministic support attestations for settings and values, including defaults-only. Citation mention alone is insufficient proof of semantics.
+- Preserve full MPML preflight diagnostics; keep accepted-with-warnings distinct from warnings-only.
+- Recheck source/index and relevant environment before final eligibility evaluation.
+- **No command rendering or release, no Ollama calls and no experiment execution.** If the live source or adapter is unavailable, test the failure path offline with mocks.
 
-## 4. Milestones and exit criteria (portfolio-first, vertical slices)
+**Exit evidence:** offline integration and adversarial tests for mismatched snapshots, settings, environment and evidence; real-MPML read-only local smoke test by the maintainer when feasible; exact candidate/provenance logs with no secrets; no unsafe releases.
 
-| Milestone | Deliverable | Exit test / evidence |
-|---|---|---|
-| **M0 Foundation (complete)** | Packaging, CLI, YAML config, restricted MPML bridge, docs, CI, ADRs | Initial [foundation commit](https://github.com/jalmqvist/argus-cli/commit/3bccd4b9dae625f654c42eae494881bf1eadb801) and merged [PR #2](https://github.com/jalmqvist/argus-cli/pull/2). Synthetic pytest and Ruff CI passed. |
-| **M1 Working MPML lookup (complete)** | Deterministic `argus inspect` and `argus explain`, source provenance, and preflight for `argus recipe defaults` | Merged [PR #3](https://github.com/jalmqvist/argus-cli/pull/3). Real MPML smoke test passed, along with 25 unit tests and Ruff. |
-| **M2 Evidence ingestion / retrieval (complete)** | Published spec and Markdown heading chunks, provenance-aware citations, BM25+, local Ollama embeddings, hybrid ranking, and stale-index rejection | Merged [PR #4](https://github.com/jalmqvist/argus-cli/pull/4). Synthetic hit@5 and real integration evidence are recorded in §6. |
-| **M2.5 Real-MPML retrieval evaluation (complete)** | Frozen set of 20 questions labeled with expected source paths and headings | Reproducible hit@1 and hit@5 comparisons across BM25+, embedding, and hybrid on the same MPML snapshot. See the [benchmark and results](eval/retrieval/README.md). |
-| **M3 Local LLM structured output (complete)** | M2 retrieval, local LangChain/Ollama, Pydantic, grounded citations, preflight and manual command rendering | Merged [PR #7](https://github.com/jalmqvist/argus-cli/pull/7). Four live smoke cases met expectations. |
-| **M3.5 Single-pass reliability (complete)** | Frozen 20-case fixture, offline scoring and three-model hybrid baseline | Qwen 12 pass / 7 fail / 1 review, Gemma 11 / 8 / 1, Llama 6 / 14 / 0. [Runner PR #8](https://github.com/jalmqvist/argus-cli/pull/8) · [Findings PR #9](https://github.com/jalmqvist/argus-cli/pull/9) |
-| **M4A LangGraph design** | Typed state, separate validation boundaries, terminal and repair policy, paired evaluation and holdout protocol | [Architecture decision](docs/adr/0004-bounded-langgraph-orchestration.md) · [Evaluation specification](docs/evaluation/M4_EVALUATION_SPEC.md) |
-| **M4B Bounded graph (planned)** | Opt-in, read-only LangGraph workflow reusing M2/M3. Check explicit intent and cap repairs at two additional calls. | Offline state-transition and call-budget tests. Preserve single-pass behavior and prevent release on failed gates. |
-| **M4C Independent evaluation (planned)** | Paired single-pass and graph comparisons, regression testing on the frozen reference set, and a separately authored holdout | Freeze the holdout before final assessment. Report case transitions, failures, abstention review, model calls and latency. |
-| **M5 Portfolio release** | Clear README, demo, diagrams, model and ablation comparisons, reproducibility metadata, limitations | Fresh-clone toy demo; CI runs tests; local Ollama eval report committed with sanitized data |
-| **Later** | MSML, BSVE, MRML source adapters; optional experimental results retrieval | Separate ADR + integration test per source repo |
+### M4v2-2C2 — Material-intent completeness and effective-configuration study
 
-Milestones produce independently reviewable PRs. **Avoid building every adapter,
-vector DB, tool registry and agent framework before the first MPML use case works.**
-CI uses synthetic fixtures and runs without Ollama.
+**Goal:** Measure which naturally phrased MPML launch requests can be **independently** verified as complete and exactly represented. This is a research gate, **not** an assumed solved problem.
 
-## 5. Public vs local data and deployment
+- Establish a reviewed taxonomy: explicit complete requests, incomplete/implicit requirements, ambiguous references, mixed answer/recipe, invalid exact values, unsupported capabilities and inferred defaults.
+- Analyze false `enforced` interpretations and false acceptance of extra/omitted settings, especially negation, order, roles, env-only controls, precedence and inherited values.
+- Compare purely deterministic coverage, targeted clarification and (if justified) **advisory** model-assisted interpretation. A model's own confidence, second opinion or self-check is never sufficient authorization.
+- Define a conservative class of requests eligible for an independent completeness assessment; others remain unresolved and may receive a grounded explanation without a command.
+- Use separately labeled new development cases and adversarial mutations; report exact denominators, false completeness, false withholding and unresolved rates.
 
-**Commit:** public toy fixtures, sanitized golden prompts, schema definitions, ADRs,
-unit tests, mock preflight responses, architectural diagrams, and generated eval tables
-whose inputs are public/sanitized.
+**Exit decision:** an auditable trusted process can verify a useful subset of requests with **zero false authorization in the tested scenarios**, or the roadmap explicitly narrows v2 recipe release to proven subclasses. Do not promote generic `coverage=enforced` to `material_intent=verified`.
 
-**Never commit:** private source clones, `.env`, model weights, vector stores, local
-absolute paths, broker credentials, actual experiments or logs, market/sentiment data.
-The source code under `market-phase-ml` stays in its own repo; Argus references it via
-`MPML_REPO` / `MPML_PYTHON` and reads only selected documented paths.
+### M4v2-2C3 — Bounded local candidate generation and eventual manual release
 
-The first release is a local Python CLI, not a web service. The LLM does not receive
-unrestricted tool access; only Argus code may invoke fixed, reviewed, read-only
-modules. Environment overrides are data and must not be interpolated into shell
-commands. Cite retrieved evidence with repo/path/heading/revision.
+**Prerequisites:** successful C1 integration and a defensible C2 completeness policy. Integrate Ollama as an **untrusted proposer** only. Reuse fixed retrieved evidence, structural checks, exact intent and environment checks and authoritative preflight, with fresh provenance at release. Introduce the trusted renderer only after all v2 gates pass.
 
-## 6. Evaluation and run evidence
+- Keep M3/M4 v1 available and unchanged.
+- Every attempted candidate must traverse the same validated snapshot and full release pipeline. No arbitrary shell instructions or hidden rewriting of invalid requests.
+- Set and enforce a total model-call and time budget before adding interpretation or repair; preserve attempts, failure classifications and duplicate-candidate stopping.
+- Report correct manual commands separately from accurate explanations and exact preflight rejections.
 
-### M2 and M2.5 retrieval evaluation
+**Exit evidence:** controlled local recipe tests on new development cases, no command-release invariant violations, measured completion and false withholding—not just preflight pass count.
 
-- Six held-out synthetic questions yielded hit@5 of 5/6 for BM25+,
-  6/6 for embeddings, and 6/6 for hybrid. The embedding and hybrid results use mocked
-  Ollama responses.
-- In the M2 integration smoke test, Argus indexed 139 chunks from MPML revision
-  `14ad36e3f70a10bb5781b88200e825a717ca402f` using `nomic-embed-text`. Lexical, embedding,
-  and hybrid retrieval worked. Exploratory queries showed differences in relevance.
-- M2.5 reused the pinned MPML revision and model tag. The 20 frozen questions
-  yielded hit@1 and hit@5 of 14/20 and 20/20 for BM25+, 15/20 and 18/20 for
-  embedding, and 18/20 and 20/20 for hybrid. The [recorded results](eval/retrieval/results-v1.json)
-  include the per-question ranks, dataset and source hashes, retrieval configuration,
-  and Ollama version and model digest. The benchmark evaluates retrieval independently
-  of recipe generation.
+### M4v2-3 — Bounded repair and comparative development evaluation
 
-### M3, M3.5 and M4 recipe evaluation
+Introduce classified repairs only for recoverable schema/representation/support errors, never to substitute a requested value or bypass uncertainty. Use transparent total call accounting. Compare M3, M4 v1 and v2 on **development/regression** cases under matched source, index, model digest and environment. Record initial/final outcomes, answer quality, command correctness, false withholding, abstentions, warnings, p50/p95 latency and all blocked releases. Keep machine and human grading regimes separate.
 
-M3's four live smoke cases matched their expectations. M3.5 measured 60 attempts
-on the frozen 20-case fixture with hybrid retrieval. Clean preflight coincided
-with wrong intent in 3 Qwen, 2 Gemma and 4 Llama cases. The archive contains only
-full hybrid runs and reports latency separately from outcome. [M3 smoke evidence](eval/generation/README.md) · [M3.5 baseline findings](docs/evaluation/M3_5_GENERATION_BASELINE_FINDINGS.md)
+### M4v2-4 — New independent holdout and promotion decision
 
-M4B uses the frozen cases as a development and regression reference. M4C will
-compare single-pass and graph outcomes with paired settings and an independent
-frozen holdout. Track structure, citations, preflight, explicit intent, warning
-accuracy, abstention review, repairs, model calls and p50/p95 latency.
-Scientific outcomes and DL activation remain unverified. Record dataset version,
-source SHA, model and embedding digests, retrieval settings and run seed.
-The historical `mpml_run_examples.tgz` remains optional local context.
-[Comparison and holdout protocol](docs/evaluation/M4_EVALUATION_SPEC.md)
+Commission separately authored and reviewed MPML questions, with provenance, fixed gold alternatives and a preregistered split between machine-scored recipes and human-reviewed factual answers. Freeze raw bytes and scoring policy **before** testing v2. Label as a new holdout version; do not modify M4C `holdout-v1`. Evaluate matched M3, M4 v1 and v2. Require defensible supported-task completion and false-withholding improvement with **zero observed command-release invariant violations**; report small-sample uncertainty rather than claiming universal safety.
 
-Older local run evidence may help author questions, but do not treat historical run
-artifacts as verified exact answers for a new MPML revision. A pending LSTM
-consensus-mature MR32 USDJPY-only recipe remains **unverified** until a matching real
-run confirms its artifact/state, DL activation and completed evaluations.
+### M5 — Portfolio release (later)
 
-## 7. High-risk failure modes
+After an independent evaluation, prepare a reproducible fresh-clone demo, readable architecture diagram, local Ollama setup, model/ablation comparison and documented limitations. Public CI remains synthetic and must not require private MPML data or multi-GB models. Additional source adapters (MSML/BSVE/MRML) require separate ADRs and integration tests.
 
-- Stale source indexes, dirty repo and model hallucination: display provenance, prefer
-  deterministic spec and preflight, abstain when evidence is insufficient.
-- Real env differences between preflight and copied command: capture an ordered env
-  override map, preserve MPML cwd, display effective invocation and warnings.
-- MPML preflight does not load artifacts; do not promise DL activation.
-- Large documentation / 7B context windows: chunk by headings and keep top-k limited.
-- Prompt injection embedded in source documents: treat retrieved text as **data**, never
-  executable instructions or authority to run arbitrary scripts.
-- Private-data leak: local-only inference; no source embedding uploads to hosted APIs.
-- Scope creep: MSML/BSVE/MRML and experiment-result analytics are future milestones.
+## 6. Evaluation discipline and promotion gates
 
-## 8. Acceptance / definition of done for MPML MVP
+Report **separately**:
 
-- Local `argus ask 'How do I run MR32 baseline?'` produces a structured, cited recipe
-  and validated preflight status, or honest abstention.
-- Documentation includes a real demo transcript, architecture diagram, tests, and
-  an evaluation report with numbers obtained from actual runs (never fabricated).
-- An unfamiliar reviewer can clone, install, run synthetic CI tests and understand
-  how to reproduce local Ollama results without access to private MPML data.
-- All tool invocations remain read-only and allowlisted; no experiment execution.
-- Known limitations and next-source adapter interfaces documented.
+1. **Answer quality:** supported factual claims, correct/partial/incorrect adjudication, evidence binding, meaningful limitations and unsupported capability responses.
+2. **Recipe quality:** exact argv/env, complete preserved request, valid/invalid requested values, authoritative preflight, candidate release correctness and warnings.
+3. **Coverage:** route classification, generation/preflight reachability, meaningful task completion, correct versus unnecessary withholding, unknown material requirements.
+4. **Safety:** any wrong released command, evidence or provenance bypass, unsafe action, invented flag, false DL activation or command leakage. Zero observed violations is an acceptance criterion, not proof of zero population risk.
+5. **Operations:** reserved/actual model calls, repair counts, end-to-end wall time, failures and timeouts (including abstentions), source/model/index hashes.
 
-## 9. Sequenced Codex implementation prompts
+An accepted preflight is **necessary but insufficient** for recipe release. An `enforced` extractor label and candidate consistency are **necessary checks only within their defined scope**, not independent proof of full user intent. A successful answer with no command is valid in the v2 explanation contract and should not be judged against the recipe scorer. Material intent, effective configuration and evidence support must come from trusted independent procedures rather than from model assertion.
 
-See `docs/prompts/` for prompts M0 through M5. Ask Codex for one reviewable PR per
-milestone, using green tests and observable exits rather than long procedural rules.
+## 7. Repository, privacy and environment policy
+
+Use Python 3.12, `pytest`, Ruff and GitHub Actions. Keep Argus's `argus` CLI local-first, allowlisted and read-only. Source integrations use each repository's interpreter and cwd, pinned spec and index; pass exact environment overrides to the preflight subprocess. Ollama runs locally when needed and has no access to arbitrary tools or broker operations. Embedding indices, raw prompts with sensitive data, private files and review A/B keys are not committed. CI relies on sanitized fixtures and mocks. Keep `MPML_REPO` and `MPML_PYTHON` as external configuration and do not vendor MPML code or data.
+
+## 8. High-risk failure modes and mitigations
+
+| Risk | Mitigation |
+| --- | --- |
+| Narrow language patterns cause false withholding | Separate explanation routing, compositional intent, coverage studies and clarification; measure task completion rather than regex coverage alone |
+| `enforced` is mistaken for semantic completeness | Independent material-intent gate defaults to unresolved; adversarial tests for missed implicit constraints |
+| Preflight accepts a wrong but syntactically valid candidate | Exact settings, independent intent/effective-configuration assessment, immutable provenance and fresh preflight |
+| Candidate, preflight or evidence reflects different snapshots | Bind original request, argv/env, evidence IDs, source/spec/index and inherited env to trusted fingerprints; recheck before release |
+| Citations mention a flag but do not support the proposed value | Require setting-level support attestations from verified evidence; do not equate retrieval with entailment |
+| DL activation or artifact loading is claimed without proof | Preserve diagnostic semantics; never equate parser/preflight success with runtime activation |
+| Model output or document injection attempts to bypass rules | No model authority, allowlisted read-only interfaces, independent validation and no arbitrary shell calls |
+| Frozen holdout becomes iterative development data | Preserve archived findings; create a separately authored, frozen independent v2 holdout |
+
+## 9. Definition of done for the MPML MVP
+
+- Documented MPML configuration questions can yield verified, cited explanation-only answers without producing a command.
+- For a supported, complete manual launch request, a candidate may be released **only** after all independent gates pass; otherwise return a grounded rejection/limitation or abstain without a runnable command.
+- Local generation and any repair are bounded, auditable, reproducible and never execute experiments.
+- A fresh-clone reviewer can run tests using public sanitized fixtures, examine exact schemas, and reproduce the local workflow with their own MPML checkout and local model.
+- An independently frozen v2 evaluation demonstrates useful completion and no observed safety-gate bypass; all uncertainty and failures remain visible.
+
+## 10. References and implementation workflow
+
+- [M4 v2 architecture design](docs/architecture/ARGUS_M4_V2_DESIGN.md) — **historical design baseline**; its original “proposed/not implemented” and untracked-file statements are superseded by this roadmap and merged PRs #22–25.
+- [M4 v2 response contract](docs/architecture/M4_V2_RESPONSE_CONTRACT.md)
+- [M4v2-2A extraction study](eval/m4v2/INTENT_DEVELOPMENT.md)
+- [M4v2-2B authorization study](eval/m4v2/AUTHORIZATION_DEVELOPMENT.md)
+- [M4C-3 and M4C-4 findings](docs/evaluation/)
+- [M4 v1 orchestration ADR](docs/adr/0004-bounded-langgraph-orchestration.md)
+- `docs/prompts/` and `eval/` for milestone prompts, fixtures and scorer provenance.
+
+Prefer **one reviewable PR per milestone**, with offline green tests, factual scope notes and separately archived local live-run evidence. Do not modify completed historical findings to improve apparent post-change results.
