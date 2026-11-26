@@ -1,17 +1,24 @@
 # Argus CLI — Implementation Plan and Research Roadmap
 
-**Status:** Updated 2026-11-26 · MPML-first, local-first, read-only · M0–M4C complete · M4v2-0 through M4v2-2B complete · next: M4v2-2C1
+**Status:** Updated 2026-11-26 · MPML-first, local-first, read-only · M0–M4C and M4v2-0 through M4v2-2C1 complete · next: lightweight M4v2-2C2A
 
 ## 1. Purpose, scope and success criteria
 
 Argus is a **local, privacy-preserving, read-only research assistant** for understanding how to configure and manually launch experiments in MPML. It combines authoritative MPML configuration interfaces, retrieval, optional local LLM generation, structured validation and reproducible evaluation. It **does not execute experiments or trading orders**. MSML, BSVE and MRML remain possible future source adapters, not current MVP dependencies.
 
-The product now has two distinct potential outputs:
+The product distinguishes three useful outcomes:
 
-1. **Grounded explanation:** a factual account of documented MPML settings, scope, defaults, precedence, diagnostic meanings or limitations, with verified provenance and citations. No runnable command is released.
-2. **Verified manual launch recipe:** exact ordered argv and environment overrides, released only after independent evidence, structural, full material-intent, effective-configuration, provenance and authoritative MPML preflight gates succeed. A passing preflight **alone does not establish intent correctness**, execution, DL activation or artifact loading.
+1. **Grounded explanation:** factual, cited MPML setting guidance; no executable command.
+2. **Qualified configuration guidance:** describe supported settings, observed preflight findings, missing information and unresolved limitations without publishing an unapproved, assembled, ready-to-run command or complete copyable argv/env recipe. Descriptions remain subject to independent factual/evidence checks, not model assertion.
+3. **Verified manual launch recipe:** exact ordered argv and environment overrides, released only after independent evidence, structural, full material-intent, effective-configuration, provenance and authoritative MPML preflight gates succeed. A passing preflight **alone does not establish intent correctness**, execution, DL activation or artifact loading.
 
 **Near-term success** is not simply more answered questions. It is greater completion of genuinely supported tasks without incorrect command release, while preserving honest withholding when evidence or intent remains unresolved. Separate explanatory-answer completion from recipe correctness and report false withholding, incorrect commands, uncertainty, calls and latency.
+
+### MVP engineering priorities
+
+- **Usability before comprehensiveness:** first ship a helpful opt-in v2 assistant that answers grounded questions and explains why some recipes cannot yet be certified; measure unnecessary withholding as well as unsafe releases.
+- **Fixed hardware budget:** maintain practical operation on the maintainer's NVIDIA GTX 1070 with **8 GB VRAM**. Keep the existing local `qwen2.5-coder:7b` baseline; no larger model, second verifier model, GPU upgrade, or always-on multi-pass inference required for MVP. Prefer one generation attempt, no automatic repair initially; measure real latency and memory rather than assume a model fits fully in VRAM.
+- **Do not weaken release claims:** `validated` still requires all trusted recipe gates. When those gates fail, offer independently grounded, explicitly limited help, not a disguised runnable recipe. Keep model-authored candidates private until release.
 
 ### Invariant boundaries
 
@@ -45,7 +52,8 @@ Use the MPML interpreter, repository cwd, bounded subprocess calls with `shell=F
 | `argus ask --agent` (M4 v1) | Opt-in bounded LangGraph with explicit-intent gate and at most three reserved generation calls | Anchored intent coverage gate withheld even many valid natural-language requests |
 | `argus ask --agent-v2` (M4v2-1) | Opt-in deterministic, source-verified explanatory answer path | Narrow informational routing; **never** releases candidate settings or commands |
 | `v2_intent.py` (M4v2-2A) | Offline compositional extraction with spans, unresolved material and separate candidate checking | Bounded grammar; `enforced` does not prove complete intent |
-| `v2_authorization.py` (M4v2-2B) | Offline candidate and trusted-observation evaluation, bound to settings, request, source/index and inherited env | Trusted live producers, full-intent verification and release checks **not integrated** |
+| `v2_authorization.py` (M4v2-2B) | Offline candidate and trusted-observation evaluation, bound to settings, request, source/index and inherited env | Full material-intent verification and release checks are **not established** |
+| `v2_live_validation.py` (M4v2-2C1) | Trusted fixed-candidate validation via real MPML spec/index and read-only preflight | No independent material-intent or effective-configuration assessment; no v2 command release |
 
 **Important:** There is **no v2 recipe-generation/release path in production yet**. Offline eligibility is not a reusable authorization token. M3 and M4 v1 remain available for historical comparability and are not silently replaced by v2.
 
@@ -67,6 +75,7 @@ The versioned `argus-response-v2.0` contract separates `response_kind`, `answer_
 | **M4v2-1** Explanatory answer path | Complete. Opt-in deterministic cited answers, clean source/index verification, no model/preflight/command. [PR #23](https://github.com/jalmqvist/argus-cli/pull/23). |
 | **M4v2-2A** Compositional intent | Complete. Offline requirement extraction, explicit unresolved spans and independent candidate consistency. [PR #24](https://github.com/jalmqvist/argus-cli/pull/24). |
 | **M4v2-2B** Offline authorization boundary | Complete. Bound offline structural/evidence/material/preflight observations and mutation tests. [PR #25](https://github.com/jalmqvist/argus-cli/pull/25). |
+| **M4v2-2C1** Trusted live integration | Complete. Fixed-candidate trusted bridge with captured environment and redacted diagnostics [PR #27](https://github.com/jalmqvist/argus-cli/pull/27). Maintainer-local real-MPML smoke accepted; only material-intent and effective-configuration blockers remained. Evidence in [LIVE_VALIDATION.md](eval/m4v2/LIVE_VALIDATION.md), archived via [PR #28](https://github.com/jalmqvist/argus-cli/pull/28). |
 
 ### M3/M4C evaluation conclusions (historical, not v2 performance)
 
@@ -91,47 +100,41 @@ Counts are recorded snapshots of milestone validation runs, **not cumulative cur
 
 ## 5. Forward roadmap — prioritized sequence
 
-### M4v2-2C1 — Trusted live adapter integration (**next**)
+### M4v2-2C1 — Trusted live adapter integration (**complete**)
 
-**Goal:** Connect verified MPML source/index, exact candidate validation, citation resolution/support, inherited environment capture and authoritative preflight observations to `v2_authorization.evaluate()` using trusted in-process adapters. Begin with **fixed, sanitized candidate inputs**, not model generation.
+The fixed-candidate live validation adapter is merged ([PR #27](https://github.com/jalmqvist/argus-cli/pull/27)). The documented maintainer-local read-only smoke on pinned MPML revision `14ad36e3…` verified provenance, environment, structure, citations and support, and returned preflight `accepted` (exit 0). Only `material_intent` and `effective_configuration` remained unresolved, as designed. [Recorded observations](eval/m4v2/LIVE_VALIDATION.md) are not an LLM or generalization evaluation.
 
-**Requirements**
+### M4v2-2C2A — Minimal effective-configuration verification (**next PR**)
 
-- Freeze one candidate and request interpretation, spec snapshot, evidence ID set and inherited environment; bind every producer observation to the same hashes.
-- Use existing structure and preflight interfaces rather than reimplementing MPML parsing; prevent stale or model-authored observation records from asserting `trusted_adapter` authority.
-- Define conservative deterministic support attestations for settings and values, including defaults-only. Citation mention alone is insufficient proof of semantics.
-- Preserve full MPML preflight diagnostics; keep accepted-with-warnings distinct from warnings-only.
-- Recheck source/index and relevant environment before final eligibility evaluation.
-- **No command rendering or release, no Ollama calls and no experiment execution.** If the live source or adapter is unavailable, test the failure path offline with mocks.
+**Goal:** Build a deterministic, bounded resolver for **common** documented MPML launch selectors using the pinned spec, exact candidate argv/env and captured inherited environment. Report value, winning channel/precedence and an evidence basis only where explicitly supported by the spec; otherwise report `unresolved` with reasons.
 
-**Exit evidence:** offline integration and adversarial tests for mismatched snapshots, settings, environment and evidence; real-MPML read-only local smoke test by the maintainer when feasible; exact candidate/provenance logs with no secrets; no unsafe releases.
+- Begin with a narrow, documented allowlist (for example variant, seed and output-directory precedence where the published spec genuinely supports the interpretation). Verify real spec shape before selecting targets. Do not infer defaults or unspecified runtime behavior from parser defaults alone.
+- Account for CLI > explicit env > inherited env > documented fallback *only when that precedence is published*. Preserve strings and distinguish absent, empty, whitespace and invalid values per documented semantics; do not silently normalize candidate values.
+- Keep source/spec/index and environment binding intact; do not use model-produced observations as authority.
+- Make the result independently testable with synthetic precedence/edge-case fixtures; optionally compare a small number of cases with read-only real-MPML preflight. Preflight acceptance is not evidence that every effective setting was resolved.
+- **No new model calls, no broad intent oracle, no new command release.** Unresolved effective values must remain unresolved; the separate complete-intent gate is unchanged.
 
-### M4v2-2C2 — Material-intent completeness and effective-configuration study
+**Exit evidence:** scoped effective-value resolution with exact evidence/provenance, adversarial tests for precedence and inherited-env drift, and a clearly enumerated unsupported surface.
 
-**Goal:** Measure which naturally phrased MPML launch requests can be **independently** verified as complete and exactly represented. This is a research gate, **not** an assumed solved problem.
+### M4v2-2C3 — First usable v2 answer/candidate workflow (**after C2A**)
 
-- Establish a reviewed taxonomy: explicit complete requests, incomplete/implicit requirements, ambiguous references, mixed answer/recipe, invalid exact values, unsupported capabilities and inferred defaults.
-- Analyze false `enforced` interpretations and false acceptance of extra/omitted settings, especially negation, order, roles, env-only controls, precedence and inherited values.
-- Compare purely deterministic coverage, targeted clarification and (if justified) **advisory** model-assisted interpretation. A model's own confidence, second opinion or self-check is never sufficient authorization.
-- Define a conservative class of requests eligible for an independent completeness assessment; others remain unresolved and may receive a grounded explanation without a command.
-- Use separately labeled new development cases and adversarial mutations; report exact denominators, false completeness, false withholding and unresolved rates.
+**Goal:** Connect existing local Ollama (`qwen2.5-coder:7b`) as a one-shot, **untrusted proposer**, preserving the previous deterministic explanatory route, verified MPML evidence and trusted fixed-candidate checks. Prioritize a useful opt-in user experience on 8 GB VRAM rather than broad semantic certification.
 
-**Exit decision:** an auditable trusted process can verify a useful subset of requests with **zero false authorization in the tested scenarios**, or the roadmap explicitly narrows v2 recipe release to proven subclasses. Do not promote generic `coverage=enforced` to `material_intent=verified`.
+- Route supported questions to a grounded answer without requiring command eligibility. For recipe requests, propose a structured candidate, run the existing structural/evidence/preflight/intent checks and return a **grounded, qualified explanation** when the complete-command gates remain unresolved; do not expose an unapproved complete candidate as a runnable or copyable recipe.
+- Release a command **only** if all existing full material-intent, effective-configuration and release gates are independently verified; absent that capability, no v2 recipe release yet. Do not change the meaning of `validated`.
+- Start with **one** local model invocation and **no automatic repair**, bounded timeouts and explicit call accounting. No additional inference model or hardware upgrade required.
+- Preserve M3, M4 v1 and deterministic v2-1 behavior unchanged. Track separate `answer_delivered`, `candidate_proposed`, `preflight_attempted`, `recipe_withheld`, `recipe_released`, error and latency counts. Never treat a nice-sounding explanation as claim-level validation.
+- Develop new, varied user questions and evaluate actual task usefulness, false withholding, incorrect settings and failure attribution on the maintainer's GTX 1070.
 
-### M4v2-2C3 — Bounded local candidate generation and eventual manual release
+**Exit evidence:** a working opt-in v2 end-to-end conversational workflow that provides substantive, appropriately qualified answers and safe candidate diagnostics on actual local hardware, even if `recipe_released=0`. Do not advertise validated recipe output until independently supported.
 
-**Prerequisites:** successful C1 integration and a defensible C2 completeness policy. Integrate Ollama as an **untrusted proposer** only. Reuse fixed retrieved evidence, structural checks, exact intent and environment checks and authoritative preflight, with fresh provenance at release. Introduce the trusted renderer only after all v2 gates pass.
+### M4v2-2C2B — Material-intent completeness study (**parallel/follow-on; not an MVP prerequisite for qualified answers**)
 
-- Keep M3/M4 v1 available and unchanged.
-- Every attempted candidate must traverse the same validated snapshot and full release pipeline. No arbitrary shell instructions or hidden rewriting of invalid requests.
-- Set and enforce a total model-call and time budget before adding interpretation or repair; preserve attempts, failure classifications and duplicate-candidate stopping.
-- Report correct manual commands separately from accurate explanations and exact preflight rejections.
+Use actual C3 failures to study which natural-language request classes can have their complete material intent independently verified. Compare bounded deterministic representations, targeted clarification and advisory model interpretation; no model self-certification. Measure false-completeness versus unnecessary-withholding rates on new development cases. Promote only a defensible, bounded subset to independently verified recipe eligibility; the rest still receive grounded qualified guidance. Broader coverage work is incremental, not a blocker to the first useful answer/candidate workflow.
 
-**Exit evidence:** controlled local recipe tests on new development cases, no command-release invariant violations, measured completion and false withholding—not just preflight pass count.
+### M4v2-3 — Practical development evaluation; optional later repair
 
-### M4v2-3 — Bounded repair and comparative development evaluation
-
-Introduce classified repairs only for recoverable schema/representation/support errors, never to substitute a requested value or bypass uncertainty. Use transparent total call accounting. Compare M3, M4 v1 and v2 on **development/regression** cases under matched source, index, model digest and environment. Record initial/final outcomes, answer quality, command correctness, false withholding, abstentions, warnings, p50/p95 latency and all blocked releases. Keep machine and human grading regimes separate.
+First evaluate first-attempt usefulness on the existing GTX 1070, before adding retries. Introduce classified repairs only if measured failure patterns justify the added latency and complexity; never substitute a requested value or bypass uncertainty. Use transparent total call accounting. Compare M3, M4 v1 and v2 on **development/regression** cases under matched source, index, model digest and environment. Record initial/final outcomes, answer quality, command correctness, false withholding, abstentions, warnings, p50/p95 latency and all blocked releases. Keep machine and human grading regimes separate.
 
 ### M4v2-4 — New independent holdout and promotion decision
 
@@ -139,7 +142,7 @@ Commission separately authored and reviewed MPML questions, with provenance, fix
 
 ### M5 — Portfolio release (later)
 
-After an independent evaluation, prepare a reproducible fresh-clone demo, readable architecture diagram, local Ollama setup, model/ablation comparison and documented limitations. Public CI remains synthetic and must not require private MPML data or multi-GB models. Additional source adapters (MSML/BSVE/MRML) require separate ADRs and integration tests.
+After an independent evaluation, prepare a reproducible fresh-clone demo, readable architecture diagram, local Ollama setup and documented limitations for the 8 GB VRAM target. Larger-model ablations are optional, not a release prerequisite. Public CI remains synthetic and must not require private MPML data or multi-GB models. Additional source adapters (MSML/BSVE/MRML) require separate ADRs and integration tests.
 
 ## 6. Evaluation discipline and promotion gates
 
