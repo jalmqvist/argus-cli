@@ -280,7 +280,8 @@ def test_cli_attempt_errors_are_persistable(run_data, monkeypatch):
 
 
 @pytest.mark.parametrize("workflow", ["single-pass", "agent"])
-def test_manifest_uses_pinned_index_and_model_metadata(run_data, monkeypatch, workflow):
+@pytest.mark.parametrize("fixture", ["baseline-v1", "holdout-v1", "wrong-spec"])
+def test_manifest_uses_pinned_index_and_model_metadata(run_data, monkeypatch, workflow, fixture):
     from argus_cli import ollama, retrieval
     from argus_cli import provenance as git_provenance
     from argus_cli.config import Source
@@ -329,7 +330,20 @@ def test_manifest_uses_pinned_index_and_model_metadata(run_data, monkeypatch, wo
         wall_timeout=660.0,
     )
 
+    if fixture != "baseline-v1":
+        dataset.update(
+            fixture_id="holdout-v1",
+            provenance={
+                "spec_sha256": source_info["spec_sha256"] if fixture == "holdout-v1" else "wrong"
+            },
+        )
+    if fixture == "wrong-spec":
+        with pytest.raises(ValueError, match="specification hash"):
+            baseline.live_manifest(args, dataset, "fixture-hash", manifest["selected"])
+        return
+
     observed = baseline.live_manifest(args, dataset, "fixture-hash", manifest["selected"])
+    assert observed["dataset_id"] == fixture
     assert observed["workflow"] == workflow
     if workflow == "agent":
         assert observed["agent"]["workflow_id"] == "m4-langgraph-v1"

@@ -15,9 +15,9 @@ from dataclasses import asdict
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+from .datasets import DEFAULT_DATASET, read_dataset
 from .paired import compare, summarize, workflow
 
-DATASET = Path(__file__).with_name("baseline-v1.json")
 REPORTS = Path("reports/local/generation")
 INDEX = Path("indexes/mpml.json")
 FORMAT = 1
@@ -25,19 +25,6 @@ FORMAT = 1
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
-
-
-def read_dataset():
-    raw = DATASET.read_bytes()
-    dataset = json.loads(raw)
-    ids = [case["id"] for case in dataset["cases"]]
-    if (
-        not ids
-        or len(set(ids)) != len(ids)
-        or any(not case["expected"] for case in dataset["cases"])
-    ):
-        raise ValueError("The fixture requires unique case IDs and nonempty gold alternatives")
-    return dataset, sha(raw)
 
 
 def live_manifest(args, dataset, dataset_hash, selected):
@@ -56,6 +43,9 @@ def live_manifest(args, dataset, dataset_hash, selected):
     _, metadata, spec = retrieval.retrieve_context(source, "benchmark", "lexical", 1)
     if metadata["git_sha"] != dataset["mpml_sha"] or metadata["dirty"]:
         raise ValueError("The frozen fixture requires its pinned, clean MPML checkout")
+    fixture_provenance = dataset.get("provenance")
+    if fixture_provenance and metadata["spec_sha256"] != fixture_provenance["spec_sha256"]:
+        raise ValueError("The live specification hash differs from the frozen fixture")
     inherited = sorted({item["name"] for item in spec["env"]} & os.environ.keys())
     if inherited:
         raise ValueError("Unset inherited MPML environment variables: " + ", ".join(inherited))
@@ -80,6 +70,7 @@ def live_manifest(args, dataset, dataset_hash, selected):
         Path(__file__),
         Path(__file__).with_name("timed_ask.py"),
         Path(__file__).with_name("paired.py"),
+        Path(__file__).with_name("datasets.py"),
         Path(__file__).with_name("scoring.py"),
     ]
     argus_revision = revision(Path.cwd())
@@ -109,6 +100,7 @@ def live_manifest(args, dataset, dataset_hash, selected):
         "workflow": selected_workflow,
         **agent,
         "machine": {"platform": platform.platform(), "cpu_count": os.cpu_count()},
+        "dataset_id": dataset.get("fixture_id", DEFAULT_DATASET),
         "dataset_version": dataset["version"],
         "dataset_sha256": dataset_hash,
         "selected": selected,
@@ -366,8 +358,6 @@ def resume_run(path, manifest, dataset, dataset_hash, execute=attempt_case):
 
 
 def main(argv=None):
-    dataset, dataset_hash = read_dataset()
-    ids = [item["id"] for item in dataset["cases"]]
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="operation", required=True)
     run = sub.add_parser("run", help="Run or resume a local benchmark")
@@ -377,6 +367,11 @@ def main(argv=None):
     )
     for command in (run, score, comparison):
         command.add_argument("run_id", help="Local report name (single-pass report for compare)")
+        command.add_argument(
+            "--dataset",
+            default=DEFAULT_DATASET,
+            help="Fixture ID: baseline-v1, holdout-vN or development-vN",
+        )
     comparison.add_argument("agent_run_id", help="Completed agent report name")
     comparison.add_argument(
         "--allow-provenance-mismatch",
@@ -384,7 +379,9 @@ def main(argv=None):
         help="Compare differing source snapshots, indexes or retrieval settings with explicit flags",
     )
     run.add_argument("--workflow", choices=("single-pass", "agent"), default="single-pass")
-    run.add_argument("--case", choices=ids, action="append", help="Select a case, repeatable")
+    run.add_argument(
+        "--case", action="append", help="Select a case in the chosen dataset, repeatable"
+    )
     run.add_argument("--model", default="qwen2.5-coder:7b")
     run.add_argument("--retrieval", choices=("hybrid", "lexical"), default="hybrid")
     run.add_argument("--config", type=Path, default=Path("sources.yaml"))
@@ -407,6 +404,9 @@ def main(argv=None):
 
     path = report_path(args.run_id)
     try:
+        dataset, dataset_hash = (
+            read_dataset() if args.dataset == DEFAULT_DATASET else read_dataset(args.dataset)
+        )
         if args.operation == "score":
             summary = summarize(read_report(path), dataset, dataset_hash)
         elif args.operation == "compare":
@@ -426,6 +426,12 @@ def main(argv=None):
                 and 0 < args.wall_timeout <= 1200
             ):
                 run.error("invalid model, generation settings, or wall timeout")
+            ids = [item["id"] for item in dataset["cases"]]
+            unknown = set(args.case or ()) - set(ids)
+            if unknown:
+                raise ValueError(
+                    "Unknown case IDs in the selected dataset: " + ", ".join(sorted(unknown))
+                )
             selected = [key for key in ids if not args.case or key in args.case]
             manifest = live_manifest(args, dataset, dataset_hash, selected)
             summary = resume_run(path, manifest, dataset, dataset_hash, live_attempt)

@@ -189,3 +189,30 @@ does not establish that the Ollama backend or system load matched.
   The runner retains no bridge stderr or additional raw model responses.
 
 No M4 benchmark outcomes are included with this infrastructure.
+
+## Independent holdout fixtures
+
+Use `--dataset` on `run`, `score`, and `compare`. The default is
+`baseline-v1`, including for historical reports with no recorded fixture ID.
+A future frozen `holdout-v1` fixture would live at
+`eval/generation/fixtures/holdout-v1.json`. Register unblinded fixtures with a
+`development-vN` ID. No independent fixture is supplied by this change.
+[Fixture contract and authoring protocol](../../docs/evaluation/M4C_HOLDOUT_PROTOCOL.md)
+
+After authoring and freezing a fixture, use the pinned MPML source and its
+verified index. For example, once `holdout-v1` is registered:
+
+```bash
+python -m eval.generation.baseline run qwen-holdout-m3 --dataset holdout-v1 --model qwen2.5-coder:7b --wall-timeout 1200
+python -m eval.generation.baseline run qwen-holdout-m4 --dataset holdout-v1 --workflow agent --model qwen2.5-coder:7b --wall-timeout 1200
+
+python -m eval.generation.baseline score qwen-holdout-m4 --dataset holdout-v1
+python -m eval.generation.baseline compare qwen-holdout-m3 qwen-holdout-m4 --dataset holdout-v1
+```
+
+Repeat the same run command to resume. Use a distinct run ID for each fixture
+and workflow. A report pins the fixture ID, version, and SHA-256 of its exact
+bytes. Matching case IDs alone cannot make reports compatible. The comparison
+provenance override applies to source, index and retrieval settings. Fixture
+identity, bytes and selected case IDs must always match. An older runner
+version may still be needed to resume an old run under its original manifest.
