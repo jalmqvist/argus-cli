@@ -35,6 +35,13 @@ def live(tmp_path, monkeypatch):
                 "nargs": None,
                 "post_parse_choices": ["TF40", "MR70"],
             },
+            {
+                "flags": ["--experiment-seed"],
+                "action": "store",
+                "nargs": None,
+                "type": "int",
+                "default": None,
+            },
             {"flags": ["--output-dir"], "action": "store", "nargs": None, "default": None},
         ],
         "env": [
@@ -43,10 +50,16 @@ def live(tmp_path, monkeypatch):
                 "scope": "launch_selector",
                 "parser": "int",
                 "default": 42,
+                "semantics": (
+                    "CLI seed wins. Environment text is stripped; blank uses 42 "
+                    "and malformed nonempty text raises ValueError."
+                ),
             },
             {"name": "TOY_TRACE", "scope": "diagnostic", "parser": "str"},
         ],
-        "precedence": [],
+        "precedence": [
+            {"setting": "experiment_seed", "order": ["--experiment-seed", "EXPERIMENT_SEED", "42"]}
+        ],
         "rules": [{"code": _WARNING["code"], "summary": "Synthetic warning."}],
         "source_edit_only": [{"name": "SPREAD_PIPS", "category": "transaction costs"}],
         "registries": {},
@@ -114,7 +127,7 @@ def test_bound_probe_preserves_argv_environment_and_cwd(live, monkeypatch):
     [
         (["--unknown"], {}),
         ([], {"UNRECOGNIZED": "2"}),
-        (["--experiment-seed", "42"], {}),
+        (["--active-pairs", "EURJPY"], {}),
         ([], {"SPREAD_PIPS": "2"}),
         ([], {"TOY_TRACE": "yes"}),
         (["--strategy"], {}),
@@ -212,6 +225,7 @@ def test_drift_and_candidate_mutation(live, monkeypatch, fault):
         "candidate": "candidate_changed",
     }
     assert expected[fault] in report.blockers
+    assert not report.effective_observations
 
 
 def test_env_changed_before_probe_skips_invocation(live, monkeypatch):
@@ -410,3 +424,19 @@ def test_bridge_preserves_legacy_environment_and_honors_explicit_empty(live, mon
     assert run.call_args.kwargs["env"]["TOY_PROCESS_SETTING"] == "legacy-value"
     adapters.mpml.preflight(source, [], inherited_env={}, overrides={"EXPERIMENT_SEED": "42"})
     assert run.call_args.kwargs["env"] == {"EXPERIMENT_SEED": "42"}
+
+
+def test_partial_effective_observations_do_not_expose_inherited_seed(live, monkeypatch):
+    source, _, _ = live
+    inherited = "573992718994837532"
+    monkeypatch.setenv("EXPERIMENT_SEED", inherited)
+    report = v2_live_validation.assess_fixed_candidate(
+        "Use strategy TF40.", Settings(argv=["--strategy", "TF40"], env={}), source
+    )
+    seed, variant, directory = report.effective_observations
+    assert seed.independently_verified and seed.winner == "inherited_env"
+    assert seed.value is None
+    assert not variant.independently_verified and not directory.independently_verified
+    assert inherited not in json.dumps(asdict(report), default=str)
+    assert report.evaluation.effective_configuration == "unresolved"
+    assert report.evaluation.material_intent == "unresolved"

@@ -33,3 +33,6 @@ for M4v2-2B.
 
 See the [trusted live validation boundary and smoke procedure](LIVE_VALIDATION.md)
 for M4v2-2C1.
+
+See [bounded effective-configuration verification](EFFECTIVE_CONFIGURATION.md)
+for M4v2-2C2A.
