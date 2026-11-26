@@ -1,6 +1,6 @@
 # Argus CLI — Implementation Plan and Research Roadmap
 
-**Status:** Updated 2026-11-26 · MPML-first, local-first, read-only · M0–M4C and M4v2-0 through M4v2-2C1 complete · next: lightweight M4v2-2C2A
+**Status:** Updated 2026-11-26 · MPML-first, local-first, read-only · M4v2-2C2A, M4v2-2C3 and the first M4v2-3A/B local development evaluation completed · next: focused M4v2-3C improvements
 
 ## 1. Purpose, scope and success criteria
 
@@ -50,12 +50,13 @@ Use the MPML interpreter, repository cwd, bounded subprocess calls with `shell=F
 | `argus retrieve` | Provenance-aware BM25+, embeddings and hybrid retrieval | Retrieval relevance is not semantic correctness |
 | `argus ask` (M3) | Local single-pass structured recipe proposal, citation/structure checks, preflight and manual renderer | Can produce misleading proposals or incorrect intent despite clean preflight |
 | `argus ask --agent` (M4 v1) | Opt-in bounded LangGraph with explicit-intent gate and at most three reserved generation calls | Anchored intent coverage gate withheld even many valid natural-language requests |
-| `argus ask --agent-v2` (M4v2-1) | Opt-in deterministic, source-verified explanatory answer path | Narrow informational routing; **never** releases candidate settings or commands |
+| `argus ask --agent-v2` (M4v2-1/C3) | Deterministic cited answers, or one local Qwen proposal with trusted validation and qualified explanation | Natural-language and evidence coverage incomplete; no v2 command release |
 | `v2_intent.py` (M4v2-2A) | Offline compositional extraction with spans, unresolved material and separate candidate checking | Bounded grammar; `enforced` does not prove complete intent |
 | `v2_authorization.py` (M4v2-2B) | Offline candidate and trusted-observation evaluation, bound to settings, request, source/index and inherited env | Full material-intent verification and release checks are **not established** |
-| `v2_live_validation.py` (M4v2-2C1) | Trusted fixed-candidate validation via real MPML spec/index and read-only preflight | No independent material-intent or effective-configuration assessment; no v2 command release |
+| `v2_live_validation.py` (M4v2-2C1/C2A) | Trusted fixed-candidate validation via real MPML spec/index and read-only preflight; per-selector seed/variant precedence observations | Full material-intent and aggregate effective-configuration gates unresolved; no v2 command release |
+| `eval/m4v2/run_development.py` (M4v2-3A) | Private first-attempt candidate evaluation, retrieval/citation attribution and local timing | Developer-authored fixture; human grading and independent generalization remain open |
 
-**Important:** There is **no v2 recipe-generation/release path in production yet**. Offline eligibility is not a reusable authorization token. M3 and M4 v1 remain available for historical comparability and are not silently replaced by v2.
+**Important:** V2 now has an **untrusted recipe-proposal path**, but **no independently authorized v2 recipe-release path**. The public v2 response keeps `settings` and `command` null. Offline eligibility is not a reusable authorization token. M3 and M4 v1 remain available for historical comparability and are not silently replaced by v2.
 
 The versioned `argus-response-v2.0` contract separates `response_kind`, `answer_status`, `recipe_status`, `intent_coverage` and `material_constraints_status`. `command` and public `settings` are null except for an independently authorized validated recipe. See [response contract](docs/architecture/M4_V2_RESPONSE_CONTRACT.md), [M4 v2 design](docs/architecture/ARGUS_M4_V2_DESIGN.md) and [offline evaluation catalog](eval/m4v2/README.md).
 
@@ -76,6 +77,10 @@ The versioned `argus-response-v2.0` contract separates `response_kind`, `answer_
 | **M4v2-2A** Compositional intent | Complete. Offline requirement extraction, explicit unresolved spans and independent candidate consistency. [PR #24](https://github.com/jalmqvist/argus-cli/pull/24). |
 | **M4v2-2B** Offline authorization boundary | Complete. Bound offline structural/evidence/material/preflight observations and mutation tests. [PR #25](https://github.com/jalmqvist/argus-cli/pull/25). |
 | **M4v2-2C1** Trusted live integration | Complete. Fixed-candidate trusted bridge with captured environment and redacted diagnostics [PR #27](https://github.com/jalmqvist/argus-cli/pull/27). Maintainer-local real-MPML smoke accepted; only material-intent and effective-configuration blockers remained. Evidence in [LIVE_VALIDATION.md](eval/m4v2/LIVE_VALIDATION.md), archived via [PR #28](https://github.com/jalmqvist/argus-cli/pull/28). |
+| **M4v2-2C2A** Narrow effective configuration | Complete. Verified seed and canonical variant precedence; eight maintainer-local real-MPML smoke cases passed. [PR #30](https://github.com/jalmqvist/argus-cli/pull/30). |
+| **M4v2-2C3** One-shot local proposal workflow | Complete. Deterministic explanations plus one local Qwen proposal, trusted checks, private candidate and qualified response; no command release. [PR #31](https://github.com/jalmqvist/argus-cli/pull/31). |
+| **M4v2-3A** First-attempt local evaluation harness | Complete. 14 developer-authored cases, exact candidate scoring, evidence attribution and private capture. [PR #32](https://github.com/jalmqvist/argus-cli/pull/32). |
+| **M4v2-3B** Baseline findings | Initial descriptive review complete. Three correct and four incorrect candidates, one exact-invalid-request, one manual review, five not-applicable; see [local findings](eval/m4v2/FIRST_ATTEMPT_FINDINGS_3B.md). Human gold/answer adjudication is outstanding. |
 
 ### M3/M4C evaluation conclusions (historical, not v2 performance)
 
@@ -87,7 +92,7 @@ The versioned `argus-response-v2.0` contract separates `response_kind`, `answer_
 
 See [M4C-3 machine findings](docs/evaluation/M4C_3_HOLDOUT_PAIRED_FINDINGS.md), [M4C-4 blind grade audit](docs/evaluation/M4C_4B_BLINDED_GRADE_AUDIT.md) and [M4C-4 combined findings](docs/evaluation/M4C_4_UNBLINDED_AND_COMBINED_FINDINGS.md).
 
-### M4 v2 development measurements (synthetic only)
+### M4 v2 development measurements (offline synthetic checks and local results separated)
 
 | Milestone | Recorded synthetic result | Interpretation limit |
 | --- | --- | --- |
@@ -98,13 +103,15 @@ See [M4C-3 machine findings](docs/evaluation/M4C_3_HOLDOUT_PAIRED_FINDINGS.md), 
 
 Counts are recorded snapshots of milestone validation runs, **not cumulative current test totals** and not estimates of real-world rates.
 
+**Actual local M4v2-3A baseline (developer-authored, not an independent holdout):** 14 complete cases; eight model attempts; candidate grades 3 correct, 4 incorrect, 1 exact-invalid-request, 1 needs-manual-review, 5 not-applicable; five accepted MPML preflights; zero recipes released. Generation median/p95 7.113/9.135 seconds (8 attempts); total median/p95 7.934/12.260 seconds (14 cases). The fixture's gold alternatives and human answer/usefulness scores still need independent review. See [M4v2-3B findings](eval/m4v2/FIRST_ATTEMPT_FINDINGS_3B.md).
+
 ## 5. Forward roadmap — prioritized sequence
 
 ### M4v2-2C1 — Trusted live adapter integration (**complete**)
 
 The fixed-candidate live validation adapter is merged ([PR #27](https://github.com/jalmqvist/argus-cli/pull/27)). The documented maintainer-local read-only smoke on pinned MPML revision `14ad36e3…` verified provenance, environment, structure, citations and support, and returned preflight `accepted` (exit 0). Only `material_intent` and `effective_configuration` remained unresolved, as designed. [Recorded observations](eval/m4v2/LIVE_VALIDATION.md) are not an LLM or generalization evaluation.
 
-### M4v2-2C2A — Minimal effective-configuration verification (**next PR**)
+### M4v2-2C2A — Minimal effective-configuration verification (**complete**)
 
 **Goal:** Build a deterministic, bounded resolver for **common** documented MPML launch selectors using the pinned spec, exact candidate argv/env and captured inherited environment. Report value, winning channel/precedence and an evidence basis only where explicitly supported by the spec; otherwise report `unresolved` with reasons.
 
@@ -116,7 +123,7 @@ The fixed-candidate live validation adapter is merged ([PR #27](https://github.c
 
 **Exit evidence:** scoped effective-value resolution with exact evidence/provenance, adversarial tests for precedence and inherited-env drift, and a clearly enumerated unsupported surface.
 
-### M4v2-2C3 — First usable v2 answer/candidate workflow (**after C2A**)
+### M4v2-2C3 — First usable v2 answer/candidate workflow (**complete**)
 
 **Goal:** Connect existing local Ollama (`qwen2.5-coder:7b`) as a one-shot, **untrusted proposer**, preserving the previous deterministic explanatory route, verified MPML evidence and trusted fixed-candidate checks. Prioritize a useful opt-in user experience on 8 GB VRAM rather than broad semantic certification.
 
@@ -132,9 +139,13 @@ The fixed-candidate live validation adapter is merged ([PR #27](https://github.c
 
 Use actual C3 failures to study which natural-language request classes can have their complete material intent independently verified. Compare bounded deterministic representations, targeted clarification and advisory model interpretation; no model self-certification. Measure false-completeness versus unnecessary-withholding rates on new development cases. Promote only a defensible, bounded subset to independently verified recipe eligibility; the rest still receive grounded qualified guidance. Broader coverage work is incremental, not a blocker to the first useful answer/candidate workflow.
 
-### M4v2-3 — Practical development evaluation; optional later repair
+### M4v2-3 — Practical development evaluation and evidence-led improvements (**in progress**)
 
-First evaluate first-attempt usefulness on the existing GTX 1070, before adding retries. Introduce classified repairs only if measured failure patterns justify the added latency and complexity; never substitute a requested value or bypass uncertainty. Use transparent total call accounting. Compare M3, M4 v1 and v2 on **development/regression** cases under matched source, index, model digest and environment. Record initial/final outcomes, answer quality, command correctness, false withholding, abstentions, warnings, p50/p95 latency and all blocked releases. Keep machine and human grading regimes separate.
+**3A (complete):** The maintainer-local first-attempt harness ran 14 developer-authored cases using the existing GTX 1070/Qwen setup with reproducible source/model/index hashes and independent candidate scoring. **3B (initial descriptive review complete):** [Findings](eval/m4v2/FIRST_ATTEMPT_FINDINGS_3B.md) identify a false routing exclusion, correct model candidates with incomplete seed evidence, incorrect environment/pair/PhaseAware proposals, and generic response limitations. Human gold review and factual/usefulness adjudication remain open; do not describe them as completed scores.
+
+**3C (next focused implementation):** Fix self-contained request proposal routing; improve bounded retrieval of requested seed, environment and PhaseAware specification entries; assess narrow typed-value support without equating type validity to complete intent; and return more useful trusted failure explanations. Preserve one generation attempt, no automatic repair, no additional model, no command release, and the original 14-case fixture/results as an unchanged development baseline. Do not silently substitute requested channels or PhaseAware roles. Re-run as a clearly labeled **paired development regression**, report source/model/implementation hashes and separate candidate correctness, retrieval/evidence support, answer usefulness and latency.
+
+Only consider classified repair or larger-model ablations if subsequent failure evidence and practical latency justify them. Compare M3, M4 v1 and v2 on explicitly labeled development/regression cases under matched conditions as appropriate; never reuse exposed M4C cases as fresh holdout evidence. Independent promotion still requires M4v2-4.
 
 ### M4v2-4 — New independent holdout and promotion decision
 
@@ -187,6 +198,8 @@ Use Python 3.12, `pytest`, Ruff and GitHub Actions. Keep Argus's `argus` CLI loc
 - [M4 v2 response contract](docs/architecture/M4_V2_RESPONSE_CONTRACT.md)
 - [M4v2-2A extraction study](eval/m4v2/INTENT_DEVELOPMENT.md)
 - [M4v2-2B authorization study](eval/m4v2/AUTHORIZATION_DEVELOPMENT.md)
+- [M4v2-3A local evaluation method](eval/m4v2/FIRST_ATTEMPT_DEVELOPMENT.md)
+- [M4v2-3B local findings](eval/m4v2/FIRST_ATTEMPT_FINDINGS_3B.md)
 - [M4C-3 and M4C-4 findings](docs/evaluation/)
 - [M4 v1 orchestration ADR](docs/adr/0004-bounded-langgraph-orchestration.md)
 - `docs/prompts/` and `eval/` for milestone prompts, fixtures and scorer provenance.
