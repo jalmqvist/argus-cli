@@ -1,6 +1,6 @@
 # Argus CLI — Implementation Plan
 
-**Status:** Updated 2026-11-25 · MPML-first MVP · local-first portfolio project · M0–M2.5 complete · M3 next
+**Status:** Updated 2026-11-26 · MPML-first MVP · local-first portfolio project · M0–M3.5 complete · M4A design
 
 ## 1. Purpose and scope
 
@@ -86,18 +86,14 @@ cell, not every DL/strategy combination or artifact compatibility.
 
 ## 3. Product architecture
 
-The diagram shows the planned end-to-end workflow. M2 provides the index and retrieval.
-M3 adds structured recipe generation and validation. M4 adds LangGraph orchestration,
-bounded repair, and agent-level abstention.
+M2 supplies retrieval. M3 provides the current single-pass generation and validation
+workflow. The planned opt-in M4B graph adds explicit intent checks and bounded
+repair around those components. [M4A architecture decision](docs/adr/0004-bounded-langgraph-orchestration.md)
 
 ```text
-sources.yaml -> source adapter -> MPML spec + docs -> normalized evidence -> local index
-                                                            |               |
-user question -> retrieval (BM25+ / vector) -> Ollama structured recipe             |
-                                              -> safety/shape validation           |
-                                              -> MPML preflight (same cwd/env)      |
-                                              -> bounded repair or abstain          |
-                                              -> answer + citations + provenance <-+
+verified MPML spec and docs -> existing index and retrieval -> local structured generation
+    -> structural and citation validation -> MPML preflight when eligible -> intent check
+    -> manual recipe, rejection, abstention, or bounded repair
 ```
 
 #### Data / evidence tiers
@@ -109,15 +105,15 @@ user question -> retrieval (BM25+ / vector) -> Ollama structured recipe         
 - **Local-only evidence:** optional experiment recipes/logs used to build private evals,
   never automatically uploaded or committed.
 
-#### Structured recipe contract (planned)
+#### Structured recipe contract
 
-`repo`, `script`, `cwd`, `argv: list[str]`, `env: dict[str,str]`, `explanation`,
-`citations: list[evidence_id]`, `requested_intent`, `unknowns`, `verification`.
-Do **not** let the model fabricate a shell command. Render an escaped, copyable command
-only after validation. Keep argv token order and env value strings. Resolve citations
-against retrieved evidence IDs; unknown or nonexistent IDs are rejected.
+M3 returns trusted source configuration, ordered `argv`, `env`, explanation,
+resolved citations, uncertainty and verification. The model proposes settings
+and evidence IDs. Argus renders an escaped manual command only after validation.
+M4B adds independently checked explicit intent constraints and attempt history.
+[Structured generation trust boundary](docs/adr/0003-structured-generation.md)
 
-#### Validation states (planned)
+#### Validation states
 
 - `validated`: structured candidate + preflight success without errors, but not a run.
 - `validated_with_warnings`: preflight success with warnings; explain impact on intent.
@@ -140,7 +136,7 @@ must not be presented as fulfilled merely because `DL_SIGNALS_ENABLED=true` pars
   uses reciprocal rank fusion. Consider Chroma/FAISS only if evaluation justifies it.
 - M3 uses `langchain-ollama`/LangChain for structured generation over the existing retrieval
   layer, with Pydantic schema validation, citation checks, and deterministic rendering.
-- M4 uses LangGraph for a finite-state retrieve/generate/validate/repair/abstain workflow.
+- M4B plans an opt-in LangGraph workflow with a maximum of two additional generation attempts.
 - Pin exact resolved dependencies in a lock file after the first functioning installation.
 
 ## 4. Milestones and exit criteria (portfolio-first, vertical slices)
@@ -151,14 +147,17 @@ must not be presented as fulfilled merely because `DL_SIGNALS_ENABLED=true` pars
 | **M1 Working MPML lookup (complete)** | Deterministic `argus inspect` and `argus explain`, source provenance, and preflight for `argus recipe defaults` | Merged [PR #3](https://github.com/jalmqvist/argus-cli/pull/3). Real MPML smoke test passed, along with 25 unit tests and Ruff. |
 | **M2 Evidence ingestion / retrieval (complete)** | Published spec and Markdown heading chunks, provenance-aware citations, BM25+, local Ollama embeddings, hybrid ranking, and stale-index rejection | Merged [PR #4](https://github.com/jalmqvist/argus-cli/pull/4). Synthetic hit@5 and real integration evidence are recorded in §6. |
 | **M2.5 Real-MPML retrieval evaluation (complete)** | Frozen set of 20 questions labeled with expected source paths and headings | Reproducible hit@1 and hit@5 comparisons across BM25+, embedding, and hybrid on the same MPML snapshot. See the [benchmark and results](eval/retrieval/README.md). |
-| **M3 Local LLM structured output** | Reuse M2 retrieval for LangChain/Ollama recipe generation. Validate structured fields with Pydantic and resolve citations to retrieved evidence. Run preflight on the candidate before rendering an escaped command for manual execution. | Score 20 MPML recipe-generation questions. Compare no-retrieval, docs-only, and hybrid retrieval baselines. |
-| **M4 LangGraph validated agent** | Orchestrate retrieve → generate → preflight → repair ≤ 2 → answer or abstain. Handle warnings, intent, and agent-level abstention. | Golden eval with correct warnings and abstentions. MPML interaction stays read-only. |
+| **M3 Local LLM structured output (complete)** | M2 retrieval, local LangChain/Ollama, Pydantic, grounded citations, preflight and manual command rendering | Merged [PR #7](https://github.com/jalmqvist/argus-cli/pull/7). Four live smoke cases met expectations. |
+| **M3.5 Single-pass reliability (complete)** | Frozen 20-case fixture, offline scoring and three-model hybrid baseline | Qwen 12 pass / 7 fail / 1 review, Gemma 11 / 8 / 1, Llama 6 / 14 / 0. [Runner PR #8](https://github.com/jalmqvist/argus-cli/pull/8) · [Findings PR #9](https://github.com/jalmqvist/argus-cli/pull/9) |
+| **M4A LangGraph design** | Typed state, separate validation boundaries, terminal and repair policy, paired evaluation and holdout protocol | [Architecture decision](docs/adr/0004-bounded-langgraph-orchestration.md) · [Evaluation specification](docs/evaluation/M4_EVALUATION_SPEC.md) |
+| **M4B Bounded graph (planned)** | Opt-in, read-only LangGraph workflow reusing M2/M3. Check explicit intent and cap repairs at two additional calls. | Offline state-transition and call-budget tests. Preserve single-pass behavior and prevent release on failed gates. |
+| **M4C Independent evaluation (planned)** | Paired single-pass and graph comparisons, regression testing on the frozen reference set, and a separately authored holdout | Freeze the holdout before final assessment. Report case transitions, failures, abstention review, model calls and latency. |
 | **M5 Portfolio release** | Clear README, demo, diagrams, model and ablation comparisons, reproducibility metadata, limitations | Fresh-clone toy demo; CI runs tests; local Ollama eval report committed with sanitized data |
 | **Later** | MSML, BSVE, MRML source adapters; optional experimental results retrieval | Separate ADR + integration test per source repo |
 
 Milestones produce independently reviewable PRs. **Avoid building every adapter,
 vector DB, tool registry and agent framework before the first MPML use case works.**
-M0–M2 CI uses synthetic fixtures and runs without Ollama.
+CI uses synthetic fixtures and runs without Ollama.
 
 ## 5. Public vs local data and deployment
 
@@ -193,29 +192,21 @@ commands. Cite retrieved evidence with repo/path/heading/revision.
   and Ollama version and model digest. The benchmark evaluates retrieval independently
   of recipe generation.
 
-### M3 and M4 recipe and agent evaluation
+### M3, M3.5 and M4 recipe evaluation
 
-Score **syntactic validity**, **preflight status**, **intent fulfillment**, and
-**scientific run outcome** independently. A zero-issue preflight is never proof the
-full experiment completed or DL actually activated.
+M3's four live smoke cases matched their expectations. M3.5 measured 60 attempts
+on the frozen 20-case fixture with hybrid retrieval. Clean preflight coincided
+with wrong intent in 3 Qwen, 2 Gemma and 4 Llama cases. The archive contains only
+full hybrid runs and reports latency separately from outcome. [M3 smoke evidence](eval/generation/README.md) · [M3.5 baseline findings](docs/evaluation/M3_5_GENERATION_BASELINE_FINDINGS.md)
 
-M3 metrics include parse validity, rule validity, warning accuracy, normalized command
-exact/semantic match, model output/schema failure rate, hallucinated flag count, and
-p50/p95 latency. Track cost proxies such as generated tokens. M4 adds abstention
-precision/recall and mean repair attempts.
-
-Recipe ablations include deterministic spec-only, model without retrieval, docs-only,
-spec+docs, and hybrid retrieval. Compare hybrid+preflight with hybrid+repair in M4.
-Compare two local small models as time permits. One larger model is an optional
-quality ceiling.
-
-Start with **20 public/sanitized MPML recipe questions**, including at least one per
-preflight diagnostic family, multi-flag requests, malformed/contradictory intent,
-unknown strategy, repeated PhaseAware, strict DL boolean, artifact-alias precedence,
-generation/variant mismatch, and output-name hints. Include the empty default baseline
-and add abstention cases for M4. Hold out roughly 30% before prompt tuning. Record the
-dataset version, source SHA, Ollama/model details, retrieval config and run seed. The
-historical `mpml_run_examples.tgz` remains optional local context for authoring questions.
+M4B uses the frozen cases as a development and regression reference. M4C will
+compare single-pass and graph outcomes with paired settings and an independent
+frozen holdout. Track structure, citations, preflight, explicit intent, warning
+accuracy, abstention review, repairs, model calls and p50/p95 latency.
+Scientific outcomes and DL activation remain unverified. Record dataset version,
+source SHA, model and embedding digests, retrieval settings and run seed.
+The historical `mpml_run_examples.tgz` remains optional local context.
+[Comparison and holdout protocol](docs/evaluation/M4_EVALUATION_SPEC.md)
 
 Older local run evidence may help author questions, but do not treat historical run
 artifacts as verified exact answers for a new MPML revision. A pending LSTM
