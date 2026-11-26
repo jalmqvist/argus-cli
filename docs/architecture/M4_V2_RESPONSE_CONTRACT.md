@@ -40,6 +40,29 @@ The schema verifies consistency of trusted observations. It cannot authenticate 
 
 Private candidate traces use a separate local type for a fingerprint, resolved evidence IDs and optional allowlisted settings. Public responses omit unapproved settings and all private traces. Drop unsafe, sensitive or unrecognized candidate values before storing a local trace. Raw prompts, model payloads, inherited environment values and reviewer identity or assignment data belong outside the contract.
 
-## M4v2-1 decisions
+## M4v2-1 deterministic answer path
 
-The next milestone must decide how callers explicitly select v2 and what answer-only exit codes mean; whether first-release answers use templates, cited local generation, or both; and how to reuse existing inspect/explain adapters. It must set bounds for local calls and provenance checks, define how claims are tied to evidence, and decide how intent verification will cover arbitrary paraphrases before adding any recipe release path.
+`argus ask --agent-v2` emits versioned JSON. A grounded answer exits 0,
+abstention or scope rejection exits 1, and unavailable verification exits 2.
+The existing request paths retain their own exit semantics.
+
+The router combines supported question cues, exact option/setting/diagnostic
+tokens and a small map of documented topic phrases. Explicit unsupported
+actions take precedence over ambiguous references and recipe requests.
+Recipe and mixed requests receive a scope explanation or clarification.
+This milestone makes zero model calls and performs no preflight probes.
+
+Each template statement identifies the exact spec section and row that supplies
+its facts. The answer path reuses the parameter lookup from `inspect`, checks
+the indexed row against the verified live spec record and binds it to the
+clean checkout's revision. It rechecks source and index identity before
+returning citations. Retrieved Markdown is excluded from template inputs.
+Diagnostic summaries describe published behavior; the response records
+preflight as unrun. Configured values, parser acceptance, warnings and runtime
+outcomes have different evidentiary requirements.
+
+The offline tests cover exact names and selected paraphrases. The router can
+withhold unfamiliar phrasing and cannot resolve arbitrary references, infer
+unpublished aliases, or independently establish every implied requirement.
+Claim-level evaluation of generated prose and full material-intent
+verification for recipes remain future work.
