@@ -199,7 +199,7 @@ for manual use. Explicit-intent consistency covers the extracted requirements.
 Full semantic intent, experiment success, artifact loading, and DL activation
 remain unverified. [Detailed graph and limits](docs/adr/0004-bounded-langgraph-orchestration.md)
 
-## Deterministic MPML explanations
+## MPML explanations and local proposal assessment
 
 Use `--agent-v2` to ask about documented MPML options without starting Ollama.
 Install the `llm` extra for the v2 JSON schema and build a lexical index from a
@@ -217,6 +217,12 @@ Answers describe documented launch behavior and carry no command or candidate
 settings. Exit code 0 indicates a grounded answer, 1 indicates withholding or
 a question that needs clarification, and 2 indicates unavailable verification
 or a CLI error. `--agent-v2` and `--agent` are mutually exclusive.
+
+
+Relevant launch requests can use one local Ollama proposal and get a qualified
+explanation of its checks, with the recipe withheld. This path uses lexical
+retrieval and the configured local model. See the
+[workflow and maintainer smoke test](eval/m4v2/LOCAL_WORKFLOW.md).
 
 
 ## Key repo files

@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Literal
@@ -66,6 +67,17 @@ class LiveEvaluation:
     environment: Literal["unchanged", "changed", "unavailable", "unchecked"]
     blockers: tuple[str, ...]
     effective_observations: tuple[EffectiveObservation, ...] = ()
+    preflight_attempted: bool = False
+    supported_evidence_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ProposalContext:
+    """Trusted orchestration inputs. The model supplies neither provenance nor environment."""
+
+    identity: SnapshotIdentity
+    inherited_env: Mapping[str, str]
+    cited_ids: tuple[str, ...]
 
 
 def _snapshot(source):
@@ -89,12 +101,16 @@ def _snapshot(source):
     return snapshot, index, metadata
 
 
-def _setting_support(index, metadata, spec, question, values):
+def _setting_support(index, metadata, spec, question, values, selected_ids=None):
     # Lexical retrieval is local. Only matching structured spec records may attest.
-    query = " ".join((question, *values))
-    chunks = rank_verified_index(index, query, "lexical", 20)["results"]["lexical"]
-    cited_ids = tuple(chunk["id"] for chunk in chunks)
     by_id = {chunk["id"]: chunk for chunk in index["chunks"]}
+    if selected_ids is None:
+        query = " ".join((question, *values))
+        chunks = rank_verified_index(index, query, "lexical", 20)["results"]["lexical"]
+        cited_ids = tuple(chunk["id"] for chunk in chunks)
+    else:
+        cited_ids = selected_ids
+        chunks = [by_id[key] for key in selected_ids if key in by_id]
     pinned_chunks = [chunk for chunk in chunks if by_id.get(chunk["id"]) == chunk]
     vocab = Vocabulary.from_spec(spec)
     support = []
@@ -209,12 +225,16 @@ def _environment_status(inherited):
         return "unavailable"
 
 
-def assess_fixed_candidate(question: str, settings: Settings, source: Source) -> LiveEvaluation:
+def assess_fixed_candidate(
+    question: str, settings: Settings, source: Source, *, proposal: ProposalContext | None = None
+) -> LiveEvaluation:
     """Use only configured read-only MPML interfaces. Missing completeness always withholds."""
     candidate = Settings.model_validate(settings.model_dump())
     candidate_hash = candidate.fingerprint()
     try:
-        inherited = MappingProxyType(os.environ.copy())
+        inherited = MappingProxyType(
+            os.environ.copy() if proposal is None else dict(proposal.inherited_env)
+        )
     except (OSError, RuntimeError):
         return LiveEvaluation(
             candidate_hash,
@@ -230,7 +250,9 @@ def assess_fixed_candidate(question: str, settings: Settings, source: Source) ->
         )
     try:
         snapshot, index, metadata = _snapshot(source)
-        if snapshot.identity.source_dirty:
+        if snapshot.identity.source_dirty or (
+            proposal is not None and snapshot.identity != proposal.identity
+        ):
             return LiveEvaluation(
                 candidate_hash,
                 None,
@@ -254,10 +276,19 @@ def assess_fixed_candidate(question: str, settings: Settings, source: Source) ->
         else:
             structure_passed = not consistency.candidate_issues
         scope = request.analysis.route in {"launch", "mixed"}
+        # Partial proposal routing permits a read-only probe, never a release finding.
+        probe_scope = scope or (proposal is not None and request.analysis.route == "ambiguous")
         cited_ids, support = (), ()
-        if structure_passed and scope:
+        if structure_passed and probe_scope:
             values, _ = _candidate_values(candidate.argv, candidate.env, Vocabulary.from_spec(spec))
-            cited_ids, support = _setting_support(index, metadata, spec, question, values)
+            cited_ids, support = _setting_support(
+                index,
+                metadata,
+                spec,
+                question,
+                values,
+                None if proposal is None else proposal.cited_ids,
+            )
     except _SOURCE_ERRORS:
         return LiveEvaluation(
             candidate_hash,
@@ -282,7 +313,13 @@ def assess_fixed_candidate(question: str, settings: Settings, source: Source) ->
     )
     environment_status = _environment_status(inherited)
     probe = Preflight(outcome="not_run", diagnostics=[]), None, (), False
-    if structure_passed and scope and environment_status == "unchanged":
+    attempted = (
+        structure_passed
+        and probe_scope
+        and environment_status == "unchanged"
+        and (proposal is None or (bool(cited_ids) and set(cited_ids) <= snapshot.evidence_ids))
+    )
+    if attempted:
         probe = _probe(source, candidate, inherited)
 
     outcome, exit_code, issues, redacted = probe
@@ -322,7 +359,7 @@ def assess_fixed_candidate(question: str, settings: Settings, source: Source) ->
         provenance_status == "verified"
         and environment_status == "unchanged"
         and structure_passed
-        and scope
+        and probe_scope
         and "candidate_changed" not in blockers
     ):
         effective_observations = tuple(
@@ -343,4 +380,6 @@ def assess_fixed_candidate(question: str, settings: Settings, source: Source) ->
         environment_status,
         tuple(blockers),
         effective_observations,
+        attempted,
+        tuple(dict.fromkeys(citation for _, citation in support)),
     )

@@ -36,3 +36,6 @@ for M4v2-2C1.
 
 See [bounded effective-configuration verification](EFFECTIVE_CONFIGURATION.md)
 for M4v2-2C2A.
+
+See the [one-shot local workflow and smoke procedure](LOCAL_WORKFLOW.md) for
+M4v2-2C3.

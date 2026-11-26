@@ -2,6 +2,7 @@
 
 import json
 import time
+from collections.abc import Callable
 from contextlib import closing
 from dataclasses import asdict, dataclass
 from typing import Literal
@@ -77,6 +78,7 @@ def generate(
     *,
     repair_context: dict | None = None,
     expected_digest: str | None = None,
+    on_model_call: Callable[[], None] | None = None,
 ) -> tuple[Candidate, str]:
     try:
         digest = model_digest(model)
@@ -125,6 +127,8 @@ def generate(
     content = ""
     output_limit_reached = False
     try:
+        if on_model_call is not None:
+            on_model_call()
         with tracing_context(enabled=False), closing(llm.stream(messages)) as stream:
             for chunk in stream:
                 if time.monotonic() >= deadline:

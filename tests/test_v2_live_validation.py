@@ -6,7 +6,16 @@ from unittest.mock import Mock
 
 import pytest
 
-from argus_cli import adapters, ask, cli, live_agent, retrieval, v2_answer, v2_live_validation
+from argus_cli import (
+    adapters,
+    ask,
+    cli,
+    live_agent,
+    retrieval,
+    v2_answer,
+    v2_live_validation,
+    v2_workflow,
+)
 from argus_cli.config import Source
 from argus_cli.provenance import Revision
 from argus_cli.v2_contract import Settings
@@ -364,13 +373,13 @@ def test_legacy_ask_dispatch_does_not_call_fixed_adapter(live, monkeypatch, caps
     source, _, _ = live
     monkeypatch.setattr(cli, "load_sources", lambda _: {"mpml": source})
     forbidden = Mock(side_effect=AssertionError("fixed adapter should not run"))
-    monkeypatch.setattr(v2_live_validation, "assess_fixed_candidate", forbidden)
+    monkeypatch.setattr(v2_workflow, "assess_fixed_candidate", forbidden)
     single = Mock(return_value={"command": "legacy"})
     agent = Mock(return_value={"command": "legacy agent"})
     explanation = Mock(return_value=(v2_answer.unavailable("explain MPML"), 2))
     monkeypatch.setattr(ask, "ask", single)
     monkeypatch.setattr(live_agent, "ask_agent", agent)
-    monkeypatch.setattr(v2_answer, "answer", explanation)
+    monkeypatch.setattr(v2_workflow, "answer", explanation)
     assert cli.main(["ask", "explain MPML", *flags]) == (2 if "--agent-v2" in flags else 0)
     result = json.loads(capsys.readouterr().out)
     if "--agent-v2" in flags:
