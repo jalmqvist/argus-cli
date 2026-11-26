@@ -127,7 +127,7 @@ def test_bound_probe_preserves_argv_environment_and_cwd(live, monkeypatch):
     [
         (["--unknown"], {}),
         ([], {"UNRECOGNIZED": "2"}),
-        (["--experiment-seed", "42"], {}),
+        (["--active-pairs", "EURJPY"], {}),
         ([], {"SPREAD_PIPS": "2"}),
         ([], {"TOY_TRACE": "yes"}),
         (["--strategy"], {}),
