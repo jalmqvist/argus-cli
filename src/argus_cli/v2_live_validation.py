@@ -27,7 +27,11 @@ from argus_cli.v2_authorization import (
     evaluate,
 )
 from argus_cli.v2_contract import Diagnostic, IntentCoverage, Preflight, Provenance, Settings
-from argus_cli.v2_effective_config import EffectiveObservation, resolve_effective_configuration
+from argus_cli.v2_effective_config import (
+    EffectiveObservation,
+    _published_rule,
+    resolve_effective_configuration,
+)
 from argus_cli.v2_intent import Vocabulary, _candidate_values, check_candidate, extract
 
 _SOURCE_ERRORS = (
@@ -69,6 +73,7 @@ class LiveEvaluation:
     effective_observations: tuple[EffectiveObservation, ...] = ()
     preflight_attempted: bool = False
     supported_evidence_ids: tuple[str, ...] = ()
+    typed_seed_support: bool = False
 
 
 @dataclass(frozen=True)
@@ -101,6 +106,16 @@ def _snapshot(source):
     return snapshot, index, metadata
 
 
+def _integer_seed_value(proposed):
+    if len(proposed) != 1:
+        return False
+    try:
+        int(proposed[0])
+    except ValueError:
+        return False
+    return True
+
+
 def _setting_support(index, metadata, spec, question, values, selected_ids=None):
     # Lexical retrieval is local. Only matching structured spec records may attest.
     by_id = {chunk["id"]: chunk for chunk in index["chunks"]}
@@ -114,6 +129,11 @@ def _setting_support(index, metadata, spec, question, values, selected_ids=None)
     pinned_chunks = [chunk for chunk in chunks if by_id.get(chunk["id"]) == chunk]
     vocab = Vocabulary.from_spec(spec)
     support = []
+    seed_rule = (
+        _published_rule(spec, vocab, "experiment_seed")
+        if ({"--experiment-seed", "EXPERIMENT_SEED"} & values.keys())
+        else None
+    )
     for target, proposed in values.items():
         if target in vocab.flags:
             row = vocab.flags[target]
@@ -141,6 +161,8 @@ def _setting_support(index, metadata, spec, question, values, selected_ids=None)
                 and type(default) is bool
                 and proposed == [str(default).lower()]
             )
+        if target in {"--experiment-seed", "EXPERIMENT_SEED"} and seed_rule is not None:
+            supported = _integer_seed_value(proposed)
         if not supported:
             continue
         try:
@@ -382,4 +404,8 @@ def assess_fixed_candidate(
         effective_observations,
         attempted,
         tuple(dict.fromkeys(citation for _, citation in support)),
+        bool(
+            any(target in {"--experiment-seed", "EXPERIMENT_SEED"} for target, _ in support)
+            and _published_rule(spec, Vocabulary.from_spec(spec), "experiment_seed")
+        ),
     )

@@ -79,6 +79,7 @@ def generate(
     repair_context: dict | None = None,
     expected_digest: str | None = None,
     on_model_call: Callable[[], None] | None = None,
+    preserve_exact_request: bool = False,
 ) -> tuple[Candidate, str]:
     try:
         digest = model_digest(model)
@@ -114,6 +115,12 @@ def generate(
         ],
     }
     prompt = SYSTEM_PROMPT
+    if preserve_exact_request:
+        prompt += (
+            "\nHonor explicit CLI-only or environment-only requests and exact PhaseAware role "
+            "assignments. If an exact value or role is unsupported, abstain instead of "
+            "substituting a different value, role or channel."
+        )
     if repair_context is not None:
         payload["repair"] = repair_context
         prompt += (

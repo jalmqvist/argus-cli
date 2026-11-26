@@ -327,7 +327,7 @@ def test_citation_resolution_is_distinct_from_support(live, monkeypatch, evidenc
             "Set output directory scratch/toy.",
             Settings(argv=["--output-dir", "scratch/toy"], env={}),
         ),
-        ("Set EXPERIMENT_SEED=117.", Settings(argv=[], env={"EXPERIMENT_SEED": "117"})),
+        ("Set EXPERIMENT_SEED=no.", Settings(argv=[], env={"EXPERIMENT_SEED": "no"})),
         ("Keep documented defaults only.", Settings(argv=[], env={})),
     ],
 )
@@ -447,5 +447,33 @@ def test_partial_effective_observations_do_not_expose_inherited_seed(live, monke
     assert seed.value is None
     assert not variant.independently_verified and not directory.independently_verified
     assert inherited not in json.dumps(asdict(report), default=str)
+    assert report.evaluation.effective_configuration == "unresolved"
+    assert report.evaluation.material_intent == "unresolved"
+
+
+@pytest.mark.parametrize(
+    ("argv", "overrides", "expected", "winner"),
+    [
+        (["--experiment-seed", "57"], {}, True, "cli"),
+        (["--experiment-seed=-1"], {}, True, "cli"),
+        (["--experiment-seed=4294967296"], {}, True, "cli"),
+        (["--experiment-seed=2.5"], {}, False, None),
+        (["--experiment-seed=invalid"], {}, False, None),
+        ([], {"EXPERIMENT_SEED": " +57 "}, True, "explicit_env"),
+        ([], {"EXPERIMENT_SEED": "invalid"}, False, None),
+        ([], {"EXPERIMENT_SEED": ""}, False, "published_fallback"),
+        (["--experiment-seed", "57"], {"EXPERIMENT_SEED": "60"}, True, "cli"),
+    ],
+)
+def test_seed_parser_support_is_narrow_and_separate_from_effective_precedence(
+    live, argv, overrides, expected, winner
+):
+    source, _, _ = live
+    report = v2_live_validation.assess_fixed_candidate(
+        "Use seed 57.", Settings(argv=argv, env=overrides), source
+    )
+    assert report.typed_seed_support is expected
+    assert report.evaluation.setting_evidence_valid is expected
+    assert report.effective_observations[0].winner == winner
     assert report.evaluation.effective_configuration == "unresolved"
     assert report.evaluation.material_intent == "unresolved"
