@@ -4,7 +4,7 @@ import json
 import os
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Literal
 
@@ -26,6 +26,7 @@ from argus_cli.v2_authorization import (
     evaluate,
 )
 from argus_cli.v2_contract import Diagnostic, IntentCoverage, Preflight, Provenance, Settings
+from argus_cli.v2_effective_config import EffectiveObservation, resolve_effective_configuration
 from argus_cli.v2_intent import Vocabulary, _candidate_values, check_candidate, extract
 
 _SOURCE_ERRORS = (
@@ -64,6 +65,7 @@ class LiveEvaluation:
     final_provenance: Literal["verified", "stale", "unavailable", "unchecked"]
     environment: Literal["unchanged", "changed", "unavailable", "unchecked"]
     blockers: tuple[str, ...]
+    effective_observations: tuple[EffectiveObservation, ...] = ()
 
 
 def _snapshot(source):
@@ -315,6 +317,20 @@ def assess_fixed_candidate(question: str, settings: Settings, source: Source) ->
         blockers.append("environment")
     if settings.fingerprint() != candidate_hash:
         blockers.append("candidate_changed")
+    effective_observations = ()
+    if (
+        provenance_status == "verified"
+        and environment_status == "unchanged"
+        and structure_passed
+        and scope
+        and "candidate_changed" not in blockers
+    ):
+        effective_observations = tuple(
+            replace(observation, value=None)
+            for observation in resolve_effective_configuration(
+                snapshot, request, candidate, dict(inherited), binding
+            )
+        )
     return LiveEvaluation(
         candidate_hash,
         request.coverage,
@@ -326,4 +342,5 @@ def assess_fixed_candidate(question: str, settings: Settings, source: Source) ->
         provenance_status,
         environment_status,
         tuple(blockers),
+        effective_observations,
     )
