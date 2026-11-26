@@ -301,14 +301,18 @@ def verify_attempt(attempt, manifest):
         raise ValueError("Argus reported a different retrieval configuration")
 
 
-def save(path, run, dataset, dataset_hash):
-    run["summary"] = summarize(run, dataset, dataset_hash)
+def save(path, run, dataset, dataset_hash, *, summarize_run=summarize):
+    run["summary"] = summarize_run(run, dataset, dataset_hash)
+    write_json(path, run)
+
+
+def write_json(path, value):
     with tempfile.NamedTemporaryFile(
         mode="w", dir=path.parent, encoding="utf-8", delete=False
     ) as temp:
         pending = Path(temp.name)
         try:
-            json.dump(run, temp, indent=2, allow_nan=False)
+            json.dump(value, temp, indent=2, allow_nan=False)
             temp.write("\n")
             temp.flush()
             os.fsync(temp.fileno())
@@ -318,7 +322,9 @@ def save(path, run, dataset, dataset_hash):
             pending.unlink(missing_ok=True)
 
 
-def resume_run(path, manifest, dataset, dataset_hash, execute=attempt_case):
+def resume_run(
+    path, manifest, dataset, dataset_hash, execute=attempt_case, *, summarize_run=summarize
+):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix(".lock").open("a") as lock:
         try:
@@ -331,10 +337,10 @@ def resume_run(path, manifest, dataset, dataset_hash, execute=attempt_case):
                 raise ValueError(
                     "Incompatible resume configuration or provenance; use a new run ID"
                 )
-            summarize(run, dataset, dataset_hash)
+            summarize_run(run, dataset, dataset_hash)
         else:
             run = {"format": FORMAT, "manifest": manifest, "attempts": {}}
-            save(path, run, dataset, dataset_hash)
+            save(path, run, dataset, dataset_hash, summarize_run=summarize_run)
 
         cases = {case["id"]: case for case in dataset["cases"]}
         config = Path(manifest["config"])
@@ -353,7 +359,7 @@ def resume_run(path, manifest, dataset, dataset_hash, execute=attempt_case):
             ):
                 raise ValueError("Index or source configuration changed during the run")
             run["attempts"][key] = {**attempt, "question": cases[key]["question"]}
-            save(path, run, dataset, dataset_hash)
+            save(path, run, dataset, dataset_hash, summarize_run=summarize_run)
         return run["summary"]
 
 
