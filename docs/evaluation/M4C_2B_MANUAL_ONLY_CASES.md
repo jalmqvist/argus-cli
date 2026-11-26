@@ -1,6 +1,7 @@
 # M4C-2B manual-only cases
 
-These 14 questions are preserved verbatim in the provisional draft. The current
+These 14 questions are preserved verbatim in the archived provisional draft.
+The registered fixture scores the other 12 cases. The current
 scorer compares exact candidate settings and dispositions. A human needs to
 check the following answers. Probe settings document a test condition, not
 settings that the user supplied.
