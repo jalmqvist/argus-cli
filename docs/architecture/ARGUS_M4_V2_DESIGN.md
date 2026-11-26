@@ -37,6 +37,8 @@ These are architectural facts, not claims about LLM reasoning quality.
 
 ## 3. Outcome and authorization contract
 
+The [v2.0 response and routing contract](M4_V2_RESPONSE_CONTRACT.md) and [offline acceptance fixtures](../../eval/m4v2/README.md) specify the initial schema and test boundaries.
+
 Keep user-facing status and verification orthogonal. Prefer an explicit result schema with distinct fields rather than making `verification=validated` mean both "good answer" and "safe command".
 
 | Field | Proposed meaning |
