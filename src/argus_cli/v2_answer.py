@@ -11,12 +11,16 @@ from argus_cli.v2_contract import Citation, Provenance, RequestAnalysis, Respons
 
 _OPTIONS = re.compile(r"(?<![\w-])--[a-zA-Z][\w-]*|\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
 _INFO = re.compile(
-    r"\b(?:which|what|when|why|explain|describe|documented|meaning|default|"
+    r"\b(?:which|what|when|why|explain|describe|list|available|documented|meaning|default|"
     r"precedence|override|wins|mean|recognized|supported|normal|affect|scope|"
     r"filter|count as|applies|import.time|ever|is there|could|would|does|how)\b"
 )
 _UNSUPPORTED = re.compile(
-    r"\b(?:broker|place (?:an? |the )?(?:limit |market )?order|"
+    r"\b(?:(?:place|submit|cancel|execute) (?:(?:an?|the|my) )?"
+    r"(?:(?:broker|limit|market) )*orders?|"
+    r"(?:execute|place) (?:(?:an?|the|my|live) )*trades?|"
+    r"perform (?:live )?brokerage operations?|"
+    r"(?:trade|buy|sell) (?:through|via|with) (?:my |the |a )?broker|"
     r"(?:execute|start|run|launch) (?:an? |the )?(?:mpml )?experiment now|"
     r"(?:^|please |can you |could you )(?:execute|start|run|launch) (?:an? |the )?(?:mpml )?experiment|"
     r"(?:load|open) (?:the |my )?(?:dl |prediction )?artifacts? (?:now|for me)|"
@@ -25,9 +29,12 @@ _UNSUPPORTED = re.compile(
     r"recipe that proves (?:dl|prediction|artifact))\b"
 )
 _RECIPE = re.compile(
-    r"\b(?:recipes?|commands?|argv|launch configuration)\b|"
-    r"(?:^|[.!?]\s+)(?:please\s+)?(?:set|configure|give me|prepare)\b|"
-    r"\b(?:how (?:do|can|should) i|help me) (?:run|launch|evaluate|backtest|configure)\b"
+    r"\b(?:build|construct|create|generate|give(?: me)?|include|prepare|provide|show(?: me)?|write)"
+    r" (?:an? |the |my )?(?:(?:cli|launch|mpml|shell|working|env-only|phaseaware|seed-[0-9]+) )*"
+    r"(?:recipe|command(?![ -]line)|argv|launch configuration)\b|"
+    r"\b(?:what|which) (?:cli |launch |mpml )?command (?:can|could|should|do) i (?:run|use)\b|"
+    r"(?:^|[.!?]\s+)(?:please\s+)?(?:set|configure)\b|"
+    r"\b(?:how (?:do|can|should) i|help me|show me how to) (?:run|launch|evaluate|backtest|configure)\b"
 )
 _REFERENCE = re.compile(
     r"\b(?:(?:that|this) (?:other )?|the other )(?:one|setting|pair|flag|option)\b|"
@@ -55,17 +62,16 @@ def _route(question: str) -> Route:
     if _REFERENCE.search(words):
         return "ambiguous"
     if _RECIPE.search(words):
-        # Mentions of the command line as a setting channel are informational.
-        without_channel = words.replace("command-line", "cli").replace("command line", "cli")
-        if _RECIPE.search(without_channel):
-            return (
-                "mixed"
-                if re.search(
-                    r"\b(?:and|also)\s+(?:explain|describe|tell)\b|\b(?:explain|describe)\b.*\b(?:and|also)\s+(?:give|show|write|include)\b",
-                    words,
-                )
-                else "launch"
+        return (
+            "mixed"
+            if re.search(
+                r"\b(?:and|also)\s+(?:explain|describe|tell)\b|"
+                r"\b(?:explain|describe)\b.*\b(?:and|also)\s+"
+                r"(?:build|construct|create|generate|give|include|prepare|provide|show|write)\b",
+                words,
             )
+            else "launch"
+        )
     return "informational" if _INFO.search(words) or "?" in words else "ambiguous"
 
 

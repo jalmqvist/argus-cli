@@ -26,6 +26,7 @@ def source(tmp_path, monkeypatch):
             for name, value, semantics in (
                 ("EXPERIMENT_SEED", 42, "The effective fallback seed is 42."),
                 ("ACTIVE_PAIRS", "all registered pairs", "Empty selects all pairs."),
+                ("MPML_BROKER_DATA_DIR", "input directory", "Used for broker CSV input."),
                 ("MPML_AUTO_ANALYZE", True, "An explicit false disables automatic analysis."),
                 ("DL_SIGNALS_ENABLED", False, "Only case-insensitive exact text true enables."),
             )
@@ -121,6 +122,11 @@ def source(tmp_path, monkeypatch):
             "Does passing preflight prove the experiment ran?",
             "No preflight or experiment was run",
             "rules / ARGPARSE",
+        ),
+        (
+            "What does MPML_BROKER_DATA_DIR do for broker CSV input?",
+            "Used for broker CSV input.",
+            "env / MPML_BROKER_DATA_DIR",
         ),
     ],
 )
@@ -246,3 +252,30 @@ def test_routes_existing_synthetic_acceptance_inventory(source):
         else:
             assert code == 1, case["id"]
     assert grounded == ["default", "precedence", "source-edit", "strict-bool", "import-time"]
+
+
+@pytest.mark.parametrize(
+    ("question", "route"),
+    [
+        ("How does MPML_BROKER_DATA_DIR affect broker CSV input?", "informational"),
+        ("What does MPML_DATA_SOURCE mean for broker CSV input?", "informational"),
+        ("Place a broker order for me.", "unsupported"),
+        ("Execute a live trade using my broker.", "unsupported"),
+        ("Explain MPML_DATA_SOURCE and place a broker order.", "unsupported"),
+        ("What CLI commands and arguments are available?", "informational"),
+        ("List the supported launch options.", "informational"),
+        ("Show me the available CLI commands.", "informational"),
+        ("Construct a launch recipe with seed 314.", "launch"),
+        ("What launch command should I run for this setup?", "launch"),
+        ("Explain the default and construct a launch recipe.", "mixed"),
+    ],
+)
+def test_routing_distinguishes_topics_from_actions(question, route):
+    assert v2_answer._route(question) == route
+
+
+def test_informational_cli_inventory_without_evidence_withholds(source):
+    report, code = v2_answer.answer(source[0], "What CLI commands are available?")
+    assert (code, report.response_kind, report.answer_status) == (1, "abstention", "limited")
+    assert report.citations == []
+    assert report.command is report.settings is None
