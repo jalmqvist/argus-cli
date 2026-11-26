@@ -24,3 +24,6 @@ The completed 26-question M4C holdout is exposed diagnostic evidence. Keep its m
 Pre-register denominators and the grading rules by route. For mixed requests report both task outcomes; a grounded answer with a withheld recipe can complete the answer portion. Keep infrastructure failures and review-pending cases visible. Report incorrect releases both as a count and against the number of released commands, with zero releases clearly identified. Preserve reproducibility metadata so an offline evaluator can trace disagreements without rerunning local models.
 
 See the [response and routing contract](../../docs/architecture/M4_V2_RESPONSE_CONTRACT.md).
+
+See the [offline intent extraction fixture and results](INTENT_DEVELOPMENT.md)
+for M4v2-2A.
