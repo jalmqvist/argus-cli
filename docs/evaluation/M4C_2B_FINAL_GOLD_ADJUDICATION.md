@@ -1,11 +1,10 @@
 # M4C-2B final gold adjudication
 
-**Freeze blocked.** The handoff verifies its component files but does not supply
-the original coordinator distribution manifest or the digest of the exact
-authoring bundle. The author also identifies `AUTHOR_INSTRUCTIONS.md` among the
-materials received, and that file is absent. The pinned spec digest, an index
-digest, and the digest of the later ZIP are each a different artifact. They
-cannot establish the missing authoring-bundle digest.
+**Freeze blocked pending receipt of the recovered manifest.** The maintainer
+supplied the recovered authoring ZIP and reported that its three members had
+been independently checked against the sidecar. This workspace has the ZIP.
+The original sidecar and distribution record are needed for local verification
+before registration.
 
 All **26** questions are preserved in the draft. **12** have machine-scoreable
 alternatives and **14** require manual adjudication. The draft is outside the
@@ -50,6 +49,28 @@ digest. No `holdout-v1` fixture is registered. No question has been deleted.
   disclosures, not independently verified distribution records. This
   coordinator had access to the Argus implementation and prior findings.
   Coordinator adjudication does not count as a blinded review.
+
+## Recovered authoring archive
+
+The ZIP `m4c2b_author_source_bundle.zip` passed its CRC integrity check.
+Its exact SHA-256 matched the maintainer's supplied digest.
+
+```text
+fd182f7be653094e7fe02d755899828430e790d20291de27139741db97504424
+```
+
+| ZIP member | Bytes | Locally computed SHA-256 |
+| --- | ---: | --- |
+| `cli_spec.json` | 24512 | `fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a` |
+| `CLI_REFERENCE.md` | 13932 | `d139c6a5828eadaddde64d28ed89509045700b841c8625336fc6e61855586dff` |
+| `AUTHOR_INSTRUCTIONS.md` | 2540 | `a8fee59b494ff24a8d8a1c6a967f113390bcd7256045e4bbf968ca1dc05115db` |
+
+The spec and CLI reference are byte-identical to the pinned MPML checkout.
+The recovered instructions name this ZIP and limit the author to those three
+members, consistent with the author's disclosure. These checks establish the
+recovered archive's contents. The maintainer's independent sidecar comparison
+is reported provenance. Local comparison against the original sidecar and
+verification of the distribution record remain pending.
 
 ## Disposition inventory
 
