@@ -11,6 +11,8 @@ from argus_cli.cli import main
 
 
 def run(argv):
+    options = argv[: argv.index("--")] if "--" in argv else argv
+    agent = "--agent" in options
     generate = ask.generate
     elapsed = None
 
@@ -23,14 +25,20 @@ def run(argv):
             elapsed = round(time.monotonic() - start, 4)
 
     output = io.StringIO()
-    ask.generate = timed_generate
+    if not agent:
+        ask.generate = timed_generate
     try:
         with contextlib.redirect_stdout(output):
             code = main(argv)
     finally:
-        ask.generate = generate
+        if not agent:
+            ask.generate = generate
     if output.getvalue():
-        print(json.dumps({"report": json.loads(output.getvalue()), "generation_seconds": elapsed}))
+        report = json.loads(output.getvalue())
+        if agent:
+            samples = [attempt["generation_seconds"] for attempt in report["attempts"]]
+            elapsed = round(sum(samples), 4) if samples else None
+        print(json.dumps({"report": report, "generation_seconds": elapsed}))
     return code
 
 

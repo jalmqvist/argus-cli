@@ -117,3 +117,75 @@ The production workflow requires retrieved citations and abstains before generat
 when evidence is empty. A no-retrieval run would therefore measure that guard.
 This benchmark compares hybrid and lexical retrieval through the same `argus ask`
 path. M3.5 includes no real-model results. The maintainer runs the comparisons locally.
+
+## M4C-1 paired development-set evaluation
+
+The same frozen 20 cases serve as a development and regression reference for
+M4. They informed the graph design. The historical M3.5 results remain a
+single-pass baseline, and the independent holdout is a separate future
+evaluation. [M4 evaluation protocol](../../docs/evaluation/M4_EVALUATION_SPEC.md)
+
+Use the pinned clean `market-phase-ml-argus-benchmark` worktree, the existing
+index built for that source, and a consistent launch environment. Install the
+`llm` and `agent` extras and use the same locally installed Qwen digest in both
+arms. The example gives both arms the same outer timeout, with room for up to
+three generation attempts in the agent arm.
+
+```bash
+python -m pip install -e '.[llm,agent]'
+python -m eval.generation.baseline run qwen-m3-paired --model qwen2.5-coder:7b --wall-timeout 1200
+python -m eval.generation.baseline run qwen-m4-paired --workflow agent --model qwen2.5-coder:7b --wall-timeout 1200
+
+python -m eval.generation.baseline score qwen-m4-paired
+python -m eval.generation.baseline compare qwen-m3-paired qwen-m4-paired
+```
+
+Repeat the exact run command to resume. Agent runs use `argus ask --agent`.
+Each new report records the workflow, and the agent manifest adds the
+LangGraph version, workflow ID, repair policy and call cap. Use distinct IDs
+and keep the reports under the ignored local directory. Resume checks the
+full manifest, including implementation hashes, and refuses to append under
+changed provenance. Old reports remain scoreable, even when their original
+runner version is needed to resume them. The Argus dirty flag is recorded
+alongside implementation hashes.
+
+`score` and `compare` read saved JSON and the frozen fixture without Ollama or
+MPML. You can compare a saved historical `qwen-hybrid` report against a completed
+agent run too. Comparison requires identical selected case IDs and the frozen
+dataset hash. It refuses incomplete runs, labels matched subsets, and flags
+different source, index or retrieval provenance. Use
+`--allow-provenance-mismatch` only for an explicitly reported exploratory
+comparison. Model/settings, runtime, implementation and available machine and
+environment differences or unknowns are reported separately. Machine metadata
+does not establish that the Ollama backend or system load matched.
+
+### Reading the results
+
+- The historical scorer still supplies pass, fail, review and error. A valid
+  model abstention retains human review. An eligible early deterministic
+  abstention without a candidate is marked separately as a review candidate.
+  Its historical score is left intact. An abstention with no gold alternative
+  is tracked separately.
+- Validated recipe coverage counts rendered, launch-validated recipes.
+  Gold intent, explicit-intent violations and command release are measured
+  independently. An exact diagnostic rejection can earn credit where permitted
+  by the original gold.
+- Agent metrics track initial and final structure, intent coverage and violations,
+  call cap breaches, call counts, repair outcomes, repeated-candidate stops and
+  budget exhaustion. A transition from failed to passing structure is reported
+  separately from recovery to a gold-scored pass after repair.
+- Per-attempt generation times come from the agent. End-to-end timings use the
+  benchmark subprocess wall clock for both arms. An outer timeout can leave
+  the final response and model-call count unknown. Historical single-pass call
+  counts are inferred from the presence of generation timing when a report exists.
+- Comparison reports per-case transitions, new passes, regressions, and
+  wrong recipes withheld without a new pass. Preflight-passed gold intent
+  mismatches count final cases in both arms. M4's separate count uses
+  explicit constraint violations across attempts.
+- Reports retain the CLI's final JSON and exported attempt diagnostics. Earlier
+  candidate argv/env are unavailable, so the evaluator cannot establish candidate
+  equality or changes across attempts. A repeated stop comes from the graph's
+  stated stop reason. Matching validation codes alone do not establish repetition.
+  The runner retains no bridge stderr or additional raw model responses.
+
+No M4 benchmark outcomes are included with this infrastructure.
