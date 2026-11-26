@@ -1,0 +1,335 @@
+{
+  "fixture_id": "holdout-v1",
+  "version": "mpml-holdout-v1",
+  "mpml_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+  "provenance": {
+    "classification": "blinded_holdout",
+    "author": "mpml-independent-author-2026",
+    "reviewer": "grok-independent-reviewer-m4c-2026",
+    "author_independence": "None to earlier Argus evaluation material. I saw only the attached cli_spec.json, CLI_REFERENCE.md, and AUTHOR_INSTRUCTIONS.md.",
+    "reviewer_independence": "None. Fresh analysis of the four attached files only. No prior Argus M3/M4 model outputs, holdout protocols, or evaluation artifacts were consulted or present in context.",
+    "source_bundle_sha256": "fd182f7be653094e7fe02d755899828430e790d20291de27139741db97504424",
+    "spec_sha256": "fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a"
+  },
+  "cases": [
+    {
+      "id": "q001",
+      "question": "I need a reproducible run of variant C with seed 817, and I want every artifact under a folder named pilot-c. What should I pass?",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-variant",
+            "C",
+            "--experiment-seed",
+            "817",
+            "--output-dir",
+            "pilot-c"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-variant",
+            "C",
+            "--output-dir",
+            "pilot-c",
+            "--experiment-seed",
+            "817"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-seed",
+            "817",
+            "--experiment-variant",
+            "C",
+            "--output-dir",
+            "pilot-c"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-seed",
+            "817",
+            "--output-dir",
+            "pilot-c",
+            "--experiment-variant",
+            "C"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--output-dir",
+            "pilot-c",
+            "--experiment-variant",
+            "C",
+            "--experiment-seed",
+            "817"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--output-dir",
+            "pilot-c",
+            "--experiment-seed",
+            "817",
+            "--experiment-variant",
+            "C"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ],
+      "human_adjudication": "Treat pilot-c as a fresh output path. Preflight does not establish that execution produced any artifacts."
+    },
+    {
+      "id": "q003",
+      "question": "Can I select the reactive JPY behavioral surface for this run, or does that require changing an environment variable?",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--behavioral-surface",
+            "reactive_jpy"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ],
+      "human_adjudication": "The CLI recipe demonstrates that an environment change is unnecessary. The env-only probe also passed, but by itself does not demonstrate the CLI capability."
+    },
+    {
+      "id": "q005",
+      "question": "Please limit this evaluation to TF4 and MR42, without changing the policy's usual scope for future runs.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--strategy",
+            "TF4",
+            "--strategy",
+            "MR42"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--strategy",
+            "MR42",
+            "--strategy",
+            "TF4"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ],
+      "human_adjudication": "Both orders represent the same requested per-run strategy selection. Accept no extra strategy selections."
+    },
+    {
+      "id": "q006",
+      "question": "I was told to run strategy XYZ7. Can you give me a valid launch command for that exact strategy?",
+      "expected": [
+        {
+          "verification": "rejected",
+          "argv": [
+            "--strategy",
+            "XYZ7"
+          ],
+          "env": {},
+          "diagnostic_codes": [
+            "STRATEGY_UNKNOWN"
+          ]
+        },
+        {
+          "verification": "abstained",
+          "diagnostic_codes": []
+        }
+      ],
+      "human_adjudication": "If abstaining, explain that the requested ID is absent and do not substitute another strategy."
+    },
+    {
+      "id": "q007",
+      "question": "For PhaseAware, use TF3 as the trend-following representative and MR5 as the mean-reversion representative. How do I specify both?",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--phaseaware-tf",
+            "TF3",
+            "--phaseaware-mr",
+            "MR5"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--phaseaware-mr",
+            "MR5",
+            "--phaseaware-tf",
+            "TF3"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "q008",
+      "question": "Could I use MR2 for the PhaseAware trend-following slot, and what would happen if I put --phaseaware-tf MR2 on the command?",
+      "expected": [
+        {
+          "verification": "rejected",
+          "argv": [
+            "--phaseaware-tf",
+            "MR2"
+          ],
+          "env": {},
+          "diagnostic_codes": [
+            "PHASEAWARE_ROLE_INVALID"
+          ]
+        }
+      ],
+      "human_adjudication": "Preserve the requested trend-following slot and MR2 in the rejected candidate."
+    },
+    {
+      "id": "q009",
+      "question": "I want variant D and a gen2 consistency hint. Can you confirm from the available reference whether those two agree?",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-variant",
+            "D",
+            "--experiment-generation",
+            "gen2"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--experiment-generation",
+            "gen2",
+            "--experiment-variant",
+            "D"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ],
+      "human_adjudication": "The exact combination passed read-only preflight. The published reference documents the consistency requirement but does not enumerate the variant mapping. Review any claim about the source of confirmation."
+    },
+    {
+      "id": "q010",
+      "question": "Show me just the top 3 recommendations, but make sure the pair-scoped recommendations file is generated too.",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--recommendation-top-n",
+            "3",
+            "--recommendations-per-pair"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        },
+        {
+          "verification": "validated",
+          "argv": [
+            "--recommendations-per-pair",
+            "--recommendation-top-n",
+            "3"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "q011",
+      "question": "I need the top zero recommendations. Is zero accepted as a way to suppress the output?",
+      "expected": [
+        {
+          "verification": "rejected",
+          "argv": [
+            "--recommendation-top-n",
+            "0"
+          ],
+          "env": {},
+          "diagnostic_codes": [
+            "TOP_N_NOT_POSITIVE"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "q013",
+      "question": "The usual console output is too brief for debugging. How can I include the detailed fold diagnostics?",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [
+            "--debug"
+          ],
+          "env": {},
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "q020",
+      "question": "I want data from 2018-01-01 through 2024-12-31. Are those dates command-line options, or how should I set them?",
+      "expected": [
+        {
+          "verification": "validated",
+          "argv": [],
+          "env": {
+            "MPML_START_DATE": "2018-01-01",
+            "MPML_END_DATE": "2024-12-31"
+          },
+          "diagnostic_codes": []
+        }
+      ]
+    },
+    {
+      "id": "q026",
+      "question": "I tried setting BEHAVIORAL_SURFACE=trend_vol but also passed --behavioral-surface=unknown. Which value wins, and is that surface accepted?",
+      "expected": [
+        {
+          "verification": "rejected",
+          "argv": [
+            "--behavioral-surface",
+            "unknown"
+          ],
+          "env": {
+            "BEHAVIORAL_SURFACE": "trend_vol"
+          },
+          "diagnostic_codes": [
+            "ARGPARSE"
+          ]
+        }
+      ],
+      "human_adjudication": "The CLI supplied value fails argparse. The documented precedence explains why the environment setting is not a fallback."
+    }
+  ]
+}

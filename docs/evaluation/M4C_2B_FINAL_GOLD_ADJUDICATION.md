@@ -1,16 +1,14 @@
 # M4C-2B final gold adjudication
 
-**Freeze blocked pending receipt of the recovered manifest.** The maintainer
-supplied the recovered authoring ZIP and reported that its three members had
-been independently checked against the sidecar. This workspace has the ZIP.
-The original sidecar and distribution record are needed for local verification
-before registration.
+**Frozen as `holdout-v1` on 2026-11-26.** The recovered ZIP and original
+sidecar resolved the provenance blocker. The maintainer identified the archive
+as the original authoring bundle. Its contents match the author's disclosure.
 
-All **26** questions are preserved in the draft. **12** have machine-scoreable
-alternatives and **14** require manual adjudication. The draft is outside the
-registered fixture directory, with classification pending and a null bundle
-digest. No `holdout-v1` fixture is registered. No question has been deleted.
-[Provisional draft](M4C_2B_HOLDOUT_V1_PROVISIONAL.json) · [Manual review criteria](M4C_2B_MANUAL_ONLY_CASES.md)
+The registered fixture contains **12** machine-scoreable cases. The **14**
+manual-only cases remain verbatim in the archived provisional draft. All
+**26** authored IDs and question strings, and all machine gold alternatives,
+match the adjudicated inputs.
+[Frozen fixture](../../eval/generation/fixtures/holdout-v1.json) · [Archived draft](M4C_2B_HOLDOUT_V1_PROVISIONAL.json) · [Manual review criteria](M4C_2B_MANUAL_ONLY_CASES.md)
 
 ## Provenance and question parity
 
@@ -46,7 +44,8 @@ digest. No `holdout-v1` fixture is registered. No question has been deleted.
   The reviewer `grok-independent-reviewer-m4c-2026` disclosed using only the
   author questions, spec, reference and reviewer instructions in a fresh
   context, without earlier Argus outputs or evaluations. These are supplied
-  disclosures, not independently verified distribution records. This
+  disclosures. The recovered archive and sidecar corroborate the material
+  list. The maintainer identified the ZIP as the original authoring bundle. This
   coordinator had access to the Argus implementation and prior findings.
   Coordinator adjudication does not count as a blinded review.
 
@@ -67,10 +66,16 @@ fd182f7be653094e7fe02d755899828430e790d20291de27139741db97504424
 
 The spec and CLI reference are byte-identical to the pinned MPML checkout.
 The recovered instructions name this ZIP and limit the author to those three
-members, consistent with the author's disclosure. These checks establish the
-recovered archive's contents. The maintainer's independent sidecar comparison
-is reported provenance. Local comparison against the original sidecar and
-verification of the distribution record remain pending.
+members, consistent with the author's disclosure. The original sidecar
+`m4c2b_author_source_bundle.manifest.json` identifies the ZIP as the independent
+authoring source bundle and pins its MPML revision, spec hash and all three
+member hashes. Its own exact-byte SHA-256 is
+`21f59e0d54d36d7f091c252116d498e7cdc91f74a7d1a5835595f5140034f2af`.
+Local checks matched the archive name and hash, exact member set and all
+member hashes against the sidecar. The distribution basis is the recovered
+artifacts and maintainer's identification of the bundle, corroborated by the
+author's and reviewer's disclosures. The sidecar records contents and purpose.
+The coordinator remains the final adjudicator.
 
 ## Disposition inventory
 
@@ -149,26 +154,20 @@ object as returned by MPML, with its question ID and process exit code added.
 {"id": "q026", "exit_code": 2, "code": "ARGPARSE", "severity": "error", "source": "argv", "message": "argument --behavioral-surface: invalid choice: 'unknown' (choose from persistent, reactive_jpy, trend_vol)"}
 ```
 
-## Freeze procedure after the blocker is resolved
+## Freeze record
 
-1. Obtain the original coordinator distribution record and digest of the exact
-   bundle supplied to the author. Verify that record against the disclosures,
-   including the author instructions. Record any prior exposure or uncertainty.
-   If blinding cannot be established, classify a future fixture as a
-   development set. Obtain the source bundle digest for that registration as
-   well.
-2. Confirm the machine-only denominator and manual review plan. Set the
-   final fixture identity, version, and honest provenance. Keep all manual
-   questions in their inventory. Validate the final machine subset through
-   the registered loader and recheck question parity against the author file.
-3. Commit the exact fixture bytes before model evaluation. Record the commit,
-   version, and digest from
-   `sha256sum eval/generation/fixtures/<fixture-id>.json`. Any later change
-   requires a distinct ID, version and digest. [Holdout protocol](M4C_HOLDOUT_PROTOCOL.md)
+- Dataset ID `holdout-v1` and version `mpml-holdout-v1`.
+- Classification `blinded_holdout`, supported by the recovered source-bundle
+  provenance and the supplied independence disclosures.
+- Exact fixture SHA-256
+  `1e4fc365bc907e5d3aeb2af4c8e8aeeb489e1b592451e9fbbf3e9ccb4a94974e`.
+- Reproduce the digest with `sha256sum eval/generation/fixtures/holdout-v1.json`.
+  The fixture is committed before any holdout evaluation. Any subsequent change
+  requires a distinct ID, version and digest. [Holdout protocol](M4C_HOLDOUT_PROTOCOL.md)
 
 No Argus M3/M4 benchmark, Ollama inference, or MPML experiment was run.
 
-## Offline verification
+## Original offline verification of the provisional draft
 
 ```text
 Question parity: 26/26 exact UTF-8 strings; 12 machine, 14 manual.
@@ -182,8 +181,15 @@ Provisional draft SHA-256: c7f920cd3d01b90cdbdd9ad11b9102708d9d1575a10dbcd6b8180
 The schema check exercised the merged case validator without making a provenance
 claim. The registered loader check used a temporary fixture directory and left
 the provisional bytes intact. The digest above identifies the provisional
-draft. There is no frozen-fixture digest.
+draft. The freeze record above identifies the registered fixture.
 
 - `python -m pytest -q` reported `211 passed in 4.21s`.
 - `ruff check src tests eval` reported `All checks passed!`.
 - `git diff --check` exited 0 with no output.
+
+## Offline verification of the frozen fixture
+
+The merged loader accepted `holdout-v1`. All 12 scored case objects match
+the provisional draft exactly. Comparing the registered cases and archived
+manual inventory with the author file confirmed all 26 original IDs and
+UTF-8 question strings. The historical baseline digest remained unchanged.
