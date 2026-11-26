@@ -1,6 +1,6 @@
 # Argus CLI — Implementation Plan and Research Roadmap
 
-**Status:** Updated 2026-11-26 · MPML-first, local-first, read-only · M4v2-2C2A, M4v2-2C3 and the first M4v2-3A/B local development evaluation completed · next: focused M4v2-3C improvements
+**Status:** Updated 2026-11-26 · MPML-first, local-first, read-only · M4v2-3A/B/C complete through paired local development regression · paused before targeted diagnosis/human review and independent M4v2-4 holdout
 
 ## 1. Purpose, scope and success criteria
 
@@ -143,7 +143,9 @@ Use actual C3 failures to study which natural-language request classes can have 
 
 **3A (complete):** The maintainer-local first-attempt harness ran 14 developer-authored cases using the existing GTX 1070/Qwen setup with reproducible source/model/index hashes and independent candidate scoring. **3B (initial descriptive review complete):** [Findings](eval/m4v2/FIRST_ATTEMPT_FINDINGS_3B.md) identify a false routing exclusion, correct model candidates with incomplete seed evidence, incorrect environment/pair/PhaseAware proposals, and generic response limitations. Human gold review and factual/usefulness adjudication remain open; do not describe them as completed scores.
 
-**3C (next focused implementation):** Fix self-contained request proposal routing; improve bounded retrieval of requested seed, environment and PhaseAware specification entries; assess narrow typed-value support without equating type validity to complete intent; and return more useful trusted failure explanations. Preserve one generation attempt, no automatic repair, no additional model, no command release, and the original 14-case fixture/results as an unchanged development baseline. Do not silently substitute requested channels or PhaseAware roles. Re-run as a clearly labeled **paired development regression**, report source/model/implementation hashes and separate candidate correctness, retrieval/evidence support, answer usefulness and latency.
+**3C (complete; paired local development regression):** The same 14 developer-authored cases were rerun under identical MPML spec/index, Qwen digest and fixture hashes after targeted routing, retrieval, seed-type evidence, prompt and qualified-response changes. Exact-correct supported configuration candidates increased from 3/7 to **5/7**; incorrect candidates fell from 4 to **2**; both invalid-exact requests were preserved and rejected structurally rather than substituted. Generation attempts rose 8→9; accepted read-only preflights 5→6; commands released **0** in both runs. Generation median was 7.113→6.804 s (different number of calls); total median 7.934→8.100 s. See [paired 3C findings](eval/m4v2/PAIRED_FINDINGS_3C.md). These are **paired development** measurements and do not isolate the effect of retrieval versus prompt changes or establish generalization.
+
+**Next restart checkpoint (not yet implemented):** Diagnose the two persistent errors—environment-only requests that still receive extra CLI settings, and missing `ACTIVE_PAIRS` pair filtering. Independently review gold alternatives, factual answer quality, user usefulness and unnecessary withholding; these review outcomes remain unresolved. Only then decide whether a narrow follow-up is warranted before a separately authored/frozen M4v2-4 holdout. Maintain one local Qwen call, bounded eight-excerpt evidence, no automatic repair and no verified v2 command release until all independent gates exist and pass.
 
 Only consider classified repair or larger-model ablations if subsequent failure evidence and practical latency justify them. Compare M3, M4 v1 and v2 on explicitly labeled development/regression cases under matched conditions as appropriate; never reuse exposed M4C cases as fresh holdout evidence. Independent promotion still requires M4v2-4.
 
@@ -200,6 +202,7 @@ Use Python 3.12, `pytest`, Ruff and GitHub Actions. Keep Argus's `argus` CLI loc
 - [M4v2-2B authorization study](eval/m4v2/AUTHORIZATION_DEVELOPMENT.md)
 - [M4v2-3A local evaluation method](eval/m4v2/FIRST_ATTEMPT_DEVELOPMENT.md)
 - [M4v2-3B local findings](eval/m4v2/FIRST_ATTEMPT_FINDINGS_3B.md)
+- [M4v2-3C paired local findings and restart point](eval/m4v2/PAIRED_FINDINGS_3C.md)
 - [M4C-3 and M4C-4 findings](docs/evaluation/)
 - [M4 v1 orchestration ADR](docs/adr/0004-bounded-langgraph-orchestration.md)
 - `docs/prompts/` and `eval/` for milestone prompts, fixtures and scorer provenance.
