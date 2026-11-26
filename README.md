@@ -154,6 +154,36 @@ retrieval benchmark. [M3 smoke fixture](eval/generation/README.md)
 The architecture note describes how Argus handles model output, source evidence,
 and preflight. [Trust boundary ADR](docs/adr/0003-structured-generation.md)
 
+## M4 architecture
+
+M3 is the operational single-pass workflow. M4B-1 adds an offline graph and
+deterministic intent checks. M4B-2 plans to connect live generation and repair.
+
+```mermaid
+flowchart TD
+    V[Verify MPML source and index] --> R[Retrieve verified MPML evidence]
+    R --> X[Extract explicit intent constraints]
+    X --> G[Structured local generation]
+    G --> S[Structural and citation validation]
+    S --> P[Authoritative MPML preflight]
+    P --> I[Separate intent-consistency checks]
+    I --> D{Release decision}
+    S -->|Invalid candidate| D
+    D -->|All gates pass| M[Validated manual command]
+    D -->|Repairable| B[Bounded repair: at most two additional calls]
+    B --> G
+    D -->|Rejected| J[Rejection]
+    D -->|Unresolved or unsupported| A[Abstention]
+    X -->|Unresolved| A
+    V -->|Stale source or index| U[Unverified]
+    G -->|Generation failure| U
+    P -->|Unavailable or drift| U
+```
+
+Install the optional `agent` extra to run the graph tests. The skeleton uses
+scripted stages and exposes release eligibility to tests. The CLI continues
+to use the M3 workflow. [Detailed graph and limits](docs/adr/0004-bounded-langgraph-orchestration.md)
+
 ## Key repo files
 
 - `PLAN.md`: updated implementation roadmap and evaluation strategy
