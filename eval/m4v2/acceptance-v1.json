@@ -11,15 +11,15 @@
     },
     {
       "id": "precedence",
-      "question": "If a pair is set in both places, which wins: the CLI selector or ACTIVE_PAIRS?",
+      "question": "How does ACTIVE_PAIRS filter the registered pairs, and is there a documented CLI flag that can override it?",
       "expected_route": "informational",
       "synthetic_observations": {},
       "expected_release_eligible": false,
-      "review_expectation": "Explain the documented precedence."
+      "review_expectation": "Explain that the import-time ACTIVE_PAIRS environment variable filters the registered pair universe and that unset or empty selects all registered pairs. The published launch CLI has no pair-selection flag that competes with it."
     },
     {
       "id": "source-edit",
-      "question": "Could the spread multiplier be supplied as an environment variable instead of editing the source?",
+      "question": "Could SPREAD_PIPS be supplied as an environment variable instead of editing the source?",
       "expected_route": "informational",
       "synthetic_observations": {},
       "expected_release_eligible": false,
