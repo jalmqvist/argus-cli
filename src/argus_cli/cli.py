@@ -61,6 +61,7 @@ def main(argv:list[str]|None=None)->int:
     search.add_argument("--limit", type=int, default=5)
     answer = sub.add_parser("ask", help="Generate and preflight a cited MPML recipe")
     answer.add_argument("question")
+    answer.add_argument("--agent", action="store_true", help="Use bounded LangGraph orchestration")
     answer.add_argument("--model", default="qwen2.5-coder:7b")
     answer.add_argument(
         "--retrieval-mode", choices=("lexical", "embedding", "hybrid"), default="hybrid"
@@ -92,10 +93,16 @@ def main(argv:list[str]|None=None)->int:
                 from argus_cli.ask import ask
                 from argus_cli.generation import GenerationSettings
             except ModuleNotFoundError as exc:
+                extra = "llm,agent" if args.agent else "llm"
                 raise ConfigError(
-                    "argus ask requires the optional dependencies: pip install 'argus-cli[llm]'"
+                    f"argus ask requires the optional dependencies: pip install 'argus-cli[{extra}]'"
                 ) from exc
-            report = ask(
+            workflow = ask
+            if args.agent:
+                from argus_cli.live_agent import ask_agent
+
+                workflow = ask_agent
+            report = workflow(
                 source,
                 args.question,
                 model=args.model,

@@ -1,4 +1,4 @@
-"""Offline graph foundation. All external stages are supplied by trusted callers."""
+"""Bounded graph with external stages supplied by trusted callers."""
 
 from __future__ import annotations
 
@@ -18,8 +18,17 @@ class Proposal(Protocol):
     outcome: Literal["recipe", "abstain"]
     argv: list[str]
     env: dict[str, str]
+    explanation: str
     evidence_ids: list[str]
     uncertainty: list[str]
+
+
+class AgentUnavailable(RuntimeError):
+    """LangGraph is unavailable in the current Argus installation."""
+
+
+class RecoverableOutput(RuntimeError):
+    """A transport-successful generation response failed candidate decoding."""
 
 
 MAX_CALLS = 3
@@ -47,6 +56,7 @@ class Validation:
     reason: str = ""
     retryable: bool = False
     citations: tuple[str, ...] = ()
+    code: str = ""
 
 
 @dataclass(frozen=True)
@@ -94,6 +104,7 @@ class Stages:
     generate: Callable[[str, tuple[str, ...], int], Proposal]
     validate: Callable[[Proposal, Evidence], Validation]
     preflight: Callable[[Source, Proposal], BridgeResult]
+    repair: Callable[[str, tuple[str, ...], Intent, Attempt], Proposal] | None = None
 
 
 def _fingerprint(candidate: Proposal) -> tuple:
@@ -106,17 +117,20 @@ def _fingerprint(candidate: Proposal) -> tuple:
     )
 
 
-def build_graph(stages: Stages):
-    """Compile an in-memory graph. No CLI route or live stage factories are provided."""
+def build_graph(stages: Stages, *, time_budget: float | None = None):
+    """Compile an in-memory graph with a deterministic call budget."""
     try:
         from langgraph.graph import END, START, StateGraph
     except ModuleNotFoundError as exc:
         if exc.name not in {"langgraph", "langgraph.graph"}:
             raise
-        raise RuntimeError("Graph support requires the optional agent extra.") from exc
+        raise AgentUnavailable("Graph support requires the optional agent extra.") from exc
 
     def stop(disposition, reason):
         return {"disposition": disposition, "reason": reason, "retry": False}
+
+    def expired(state):
+        return time_budget is not None and time.monotonic() - state["started"] >= time_budget
 
     def fresh(state):
         try:
@@ -160,6 +174,8 @@ def build_graph(stages: Stages):
         return {"intent": intent}
 
     def reserve(state):
+        if expired(state):
+            return stop("unverified", "Graph time budget exhausted.")
         if state["reserved_calls"] >= MAX_CALLS:
             return stop("unverified", "Generation-call limit reached.")
         if not fresh(state):
@@ -181,9 +197,25 @@ def build_graph(stages: Stages):
         calls = {"model_calls": state["model_calls"] + 1}
         started = time.monotonic()
         try:
-            candidate = stages.generate(
-                state["question"], state["evidence_ids"], state["reserved_calls"]
-            )
+            if state["attempts"] and stages.repair is not None:
+                candidate = stages.repair(
+                    state["question"], state["evidence_ids"], state["intent"], state["attempts"][-1]
+                )
+            else:
+                candidate = stages.generate(
+                    state["question"], state["evidence_ids"], state["reserved_calls"]
+                )
+        except RecoverableOutput:
+            return {
+                **calls,
+                "generation_seconds": time.monotonic() - started,
+                "validation": Validation(
+                    False,
+                    "Model output failed the candidate schema.",
+                    retryable=True,
+                    code="invalid_candidate",
+                ),
+            }
         # Keep accounting even if a supplied generator fails after it starts.
         except (Exception, KeyboardInterrupt) as exc:  # noqa: BLE001
             reason = f"Generation failed: {str(exc) or type(exc).__name__}"
@@ -204,6 +236,8 @@ def build_graph(stages: Stages):
         return {"validation": result}
 
     def preflight(state):
+        if expired(state):
+            return stop("unverified", "Graph time budget exhausted.")
         if not fresh(state):
             return stop("unverified", "Source or index changed before preflight.")
         result = None
@@ -233,7 +267,7 @@ def build_graph(stages: Stages):
     def check_intent(state):
         candidate = state["candidate"]
         if candidate.outcome == "abstain":
-            return stop("abstained", " ".join(candidate.uncertainty))
+            return stop("abstained", "Model declined to propose a recipe.")
         result = check(state["intent"], candidate.argv, candidate.env)
         return {"intent_check": result}
 
@@ -301,8 +335,13 @@ def build_graph(stages: Stages):
         if state.get("validation") and state["validation"].accepted:
             result["citations"] = state["validation"].citations
         if status in {"validated", "validated_with_warnings"}:
+            if expired(state):
+                return {**result, **stop("unverified", "Graph time budget exhausted.")}
             if not fresh(state):
                 return {**result, **stop("unverified", "Source or index changed before release.")}
+            result["wall_seconds"] = time.monotonic() - state["started"]
+            if expired(state):
+                return {**result, **stop("unverified", "Graph time budget exhausted.")}
             result["released"] = True
         return result
 
@@ -340,8 +379,14 @@ def build_graph(stages: Stages):
         )
     graph.add_conditional_edges(
         "generate",
-        lambda state: "record" if state.get("disposition") else "validate",
-        ["record", "validate"],
+        lambda state: (
+            "record"
+            if state.get("disposition")
+            else "decide"
+            if state["candidate"] is None
+            else "validate"
+        ),
+        ["record", "decide", "validate"],
     )
     graph.add_conditional_edges(
         "validate",
