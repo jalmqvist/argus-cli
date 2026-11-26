@@ -38,6 +38,10 @@ class IntentCheck:
     unresolved: tuple[str, ...]
 
 
+def _normalize_pairs(value: str) -> tuple[str, ...]:
+    return tuple(part.strip().upper() for part in value.split(","))
+
+
 def extract(question: str, spec: dict) -> Intent:
     """Recognize complete, anchored requests. Values still belong to MPML preflight."""
     text = question.rstrip().rstrip(".?").lstrip()
@@ -128,7 +132,9 @@ def extract(question: str, spec: dict) -> Intent:
         return enforce(pairs)
     match = re.fullmatch(rf"(?:(?i:set|use) )?ACTIVE_PAIRS=(?P<pairs>{_PAIR}(?:, ?{_PAIR})*)", text)
     if match:
-        return enforce(make(match, "env", "ACTIVE_PAIRS", [match["pairs"]], group="pairs"))
+        return enforce(
+            make(match, "env", "ACTIVE_PAIRS", _normalize_pairs(match["pairs"]), "pairs", "pairs")
+        )
     match = re.fullmatch(r"use (?:only )?the default strategy selection", text, re.IGNORECASE)
     if match:
         return enforce(make(match, "argv", "--strategy", operator="absent"))
@@ -235,11 +241,7 @@ def check(intent: Intent, argv: list[str], env: dict[str, str]) -> IntentCheck:
             actual = tuple(options.get(item.target, ()))
         elif item.target in env:
             value = env[item.target]
-            actual = (
-                (value,)
-                if item.operator != "pairs"
-                else tuple(part.strip().upper() for part in value.split(","))
-            )
+            actual = (value,) if item.operator != "pairs" else _normalize_pairs(value)
         else:
             actual = ()
         matches = not actual if item.operator == "absent" else actual == item.values

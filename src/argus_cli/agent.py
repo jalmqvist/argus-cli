@@ -246,7 +246,12 @@ def build_graph(stages: Stages):
         if not validation.accepted:
             return {"retry": validation.retryable, "reason": validation.reason}
         if status == "rejected":
-            return stop("rejected", "MPML preflight rejected the candidate.")
+            reason = (
+                "MPML preflight rejected a candidate that contradicts explicit user constraints."
+                if intent.violated
+                else "MPML preflight rejected the explicitly requested configuration."
+            )
+            return stop("rejected", reason)
         dl_value = state["candidate"].env.get(
             "DL_SIGNALS_ENABLED", os.environ.get("DL_SIGNALS_ENABLED", "")
         )

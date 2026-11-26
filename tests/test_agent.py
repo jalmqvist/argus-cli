@@ -151,12 +151,24 @@ def test_structural_and_citation_failures_skip_preflight(stages, bad):
     stages.preflight.assert_not_called()
 
 
-def test_preflight_rejection_keeps_errors(stages):
+@pytest.mark.parametrize(
+    ("strategy", "reason"),
+    [
+        ("MR32", "MPML preflight rejected the explicitly requested configuration."),
+        ("TF4", "MPML preflight rejected a candidate that contradicts explicit user constraints."),
+    ],
+)
+def test_preflight_rejection_keeps_errors_and_distinguishes_intent(stages, strategy, reason):
+    stages.generate.return_value = candidate(["--strategy", strategy])
     stages.preflight.return_value = BridgeResult(1, {"issues": [ERROR, WARNING]}, "")
     state = run(stages)
     assert state["disposition"] == "rejected"
     assert not state["released"]
-    assert state["attempts"][0].preflight.document["issues"] == [ERROR, WARNING]
+    attempt = state["attempts"][0]
+    assert attempt.preflight.document["issues"] == [ERROR, WARNING]
+    assert attempt.preflight_status == "rejected"
+    assert bool(attempt.intent.violated) == (strategy != "MR32")
+    assert state["reason"] == attempt.reason == reason
     assert state["warnings"] == (WARNING,)
     assert state["reserved_calls"] == 1
 
@@ -291,7 +303,7 @@ def test_failed_or_interrupted_generation_consumes_attempt(stages, failure):
         (
             "Use ACTIVE_PAIRS=USDJPY, EURUSD",
             ([], {"ACTIVE_PAIRS": "USDJPY, EURUSD"}),
-            ([], {"ACTIVE_PAIRS": "USDJPY,EURUSD"}),
+            ([], {"ACTIVE_PAIRS": "EURUSD,USDJPY"}),
         ),
     ],
 )
@@ -416,3 +428,21 @@ def test_second_call_failure_still_consumes_repair_slot(stages):
     assert state["repair_count"] == 1
     assert state["attempts"][0].validation.reason
     assert state["attempts"][1].generation_seconds >= 0
+
+
+@pytest.mark.parametrize("requested", ["USDJPY,EURUSD", "USDJPY, EURUSD"])
+@pytest.mark.parametrize(
+    ("proposed", "matches"),
+    [
+        ("USDJPY,EURUSD", True),
+        (" usdjpy , EURUSD ", True),
+        ("EURUSD,USDJPY", False),
+    ],
+)
+def test_explicit_pairs_normalize_csv_without_reordering(requested, proposed, matches):
+    intent = extract(f"Use ACTIVE_PAIRS={requested}", SPEC)
+    assert intent.coverage == "enforced"
+    assert intent.constraints[0].values == ("USDJPY", "EURUSD")
+    result = check(intent, [], {"ACTIVE_PAIRS": proposed})
+    assert result.satisfied == (intent.constraints if matches else ())
+    assert result.violated == (() if matches else intent.constraints)
