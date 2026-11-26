@@ -18,7 +18,7 @@ from argus_cli.generation import (
     generate,
 )
 from argus_cli.retrieval import rank_verified_index
-from argus_cli.v2_answer import _report, _route, answer, unavailable
+from argus_cli.v2_answer import _REFERENCE, _report, _route, answer, unavailable
 from argus_cli.v2_contract import Citation, Preflight, Provenance, ResponseV2, Settings
 from argus_cli.v2_intent import _UNSAFE_CONTEXT
 from argus_cli.v2_live_validation import (
@@ -34,9 +34,40 @@ _TOPIC = re.compile(
     r"experiment_(?:seed|variant)|active_pairs|mpml_output_dir)\b|--[a-z]",
     re.IGNORECASE,
 )
-_PROPOSE = re.compile(r"^\s*(?:please\s+)?(?:use|choose|select|pin)\b", re.IGNORECASE)
+_PROPOSE = re.compile(
+    r"^\s*(?:please\s+)?(?:use|choose|select|pin)\b"
+    r"|^\s*(?:i['’]d like|i would like|i want)\s+"
+    r"(?:to (?:use|choose|select|pin|configure)\b|(?:an? |the )?(?:mpml )?configuration\b)"
+    r"|^\s*(?:(?:can|could|would) you )?help me configure\b",
+    re.IGNORECASE,
+)
+_UNRESOLVED_REFERENCE = re.compile(
+    r"\b(?:that|this|same|previous|other) (?:strategy|variant|seed|configuration)\b", re.IGNORECASE
+)
+_SETTING_LABELS = {
+    "--strategy": "strategy selection",
+    "--phaseaware-tf": "PhaseAware trend representative",
+    "--phaseaware-mr": "PhaseAware mean-reversion representative",
+    "--experiment-seed": "experiment seed",
+    "EXPERIMENT_SEED": "experiment seed",
+    "--experiment-variant": "experiment variant",
+    "EXPERIMENT_VARIANT": "experiment variant",
+    "ACTIVE_PAIRS": "active pair filter",
+    "--output-dir": "output directory",
+    "MPML_OUTPUT_DIR": "output directory",
+}
+_PRECEDENCE_LABELS = {
+    "experiment_seed": "experiment seed",
+    "experiment_variant": "experiment variant",
+}
+_WINNER_LABELS = {
+    "cli": "the command line",
+    "explicit_env": "an explicit environment override",
+    "inherited_env": "the inherited environment",
+    "published_fallback": "the published fallback",
+}
 _EXECUTE = re.compile(
-    r"(?:^|[;.!?]\s*|\b(?:please|can you|could you|and then)\s+)"
+    r"(?:^|[;.!?]\s*|\b(?:please|can you|could you|and then|i want you to|i['’]d like you to)\s+)"
     r"(?:run|execute|start|launch|backtest|evaluate|place|trade|buy|sell)\b"
     r"|\b(?:execute|run|launch)\b[^.!?;]*\b(?:for me|right now)\b",
     re.IGNORECASE,
@@ -53,8 +84,13 @@ class WorkflowResponse(ResponseV2):
 def _proposal_route(question, route):
     if route == "unsupported" or _UNSAFE_CONTEXT.search(question) or _EXECUTE.search(question):
         return "unsupported"
-    if _TOPIC.search(question) and (route in {"launch", "mixed"} or _PROPOSE.search(question)):
-        return "launch" if route == "ambiguous" else route
+    if _REFERENCE.search(question.casefold()) or _UNRESOLVED_REFERENCE.search(question):
+        return None
+    if _TOPIC.search(question):
+        if route in {"launch", "mixed"}:
+            return route
+        if _PROPOSE.search(question):
+            return "launch"
     return None
 
 
@@ -227,17 +263,30 @@ def run(
         if result.structure_valid
         else "The proposal contains unsupported arguments, values or environment overrides."
     ]
-    if citations_supported := report.supported_evidence_ids:
-        count = len(citations_supported)
+    supported = set()
+    for key in report.supported_evidence_ids:
+        heading = pinned[key]["citation"]["heading"]
+        for target in heading.partition(" / ")[2].split(", "):
+            if target in _SETTING_LABELS:
+                supported.add(_SETTING_LABELS[target])
+    if supported:
         details.append(
-            f"Published specification entries support parts of the proposal ({count} cited entries)."
+            f"Published MPML records support the proposed {', '.join(sorted(supported))}."
         )
     if result.structure_valid and not result.setting_evidence_valid:
         details.append(
             "The cited specification does not directly establish every proposed setting."
         )
-    if result.consistency.violated:
-        details.append("The proposal conflicts with one or more explicit request constraints.")
+    for constraints, outcome in (
+        (result.consistency.satisfied, "matches"),
+        (result.consistency.violated, "conflicts with"),
+    ):
+        labels = sorted(
+            {_SETTING_LABELS[item.target] for item in constraints if item.target in _SETTING_LABELS}
+        )
+        if constraints:
+            scope = f" for {', '.join(labels)}" if labels else ""
+            details.append(f"The proposal {outcome} the recognized request constraints{scope}.")
     details.append(
         {
             "not_run": "MPML preflight was not run.",
@@ -249,7 +298,14 @@ def run(
         }[result.preflight.outcome]
     )
     for item in trace["effective_observations"]:
-        details.append(f"The published precedence resolved the {item['setting']} selector.")
+        label = _PRECEDENCE_LABELS[item["setting"]]
+        winner = _WINNER_LABELS[item["winner"]]
+        details.append(
+            f"For {label}, MPML uses the command line first, then the environment, "
+            f"then the published fallback. The winning source here was {winner}."
+        )
+    if result.consistency.unresolved:
+        details.append("Some parts of the request could not be interpreted independently.")
     if proposal.uncertainty:
         details.append("The model flagged uncertainty about the proposal.")
     details.append(
