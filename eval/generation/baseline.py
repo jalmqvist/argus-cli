@@ -5,16 +5,17 @@ import fcntl
 import hashlib
 import json
 import os
+import platform
 import re
 import subprocess
 import sys
 import tempfile
 import time
 from dataclasses import asdict
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from .scoring import summarize
+from .paired import compare, summarize, workflow
 
 DATASET = Path(__file__).with_name("baseline-v1.json")
 REPORTS = Path("reports/local/generation")
@@ -78,6 +79,8 @@ def live_manifest(args, dataset, dataset_hash, selected):
     implementation_files = sorted(argus_dir.rglob("*.py")) + [
         Path(__file__),
         Path(__file__).with_name("timed_ask.py"),
+        Path(__file__).with_name("paired.py"),
+        Path(__file__).with_name("scoring.py"),
     ]
     argus_revision = revision(Path.cwd())
     # Hash the inherited environment without recording its values. Shell bookkeeping
@@ -85,7 +88,27 @@ def live_manifest(args, dataset, dataset_hash, selected):
     environment = {
         key: val for key, val in os.environ.items() if key not in {"_", "SHLVL", "OLDPWD"}
     }
+    selected_workflow = getattr(args, "workflow", "single-pass")
+    agent = {}
+    if selected_workflow == "agent":
+        from argus_cli.agent import MAX_CALLS
+
+        try:
+            graph_version = version("langgraph")
+        except PackageNotFoundError as exc:
+            raise ValueError("Agent benchmark requires 'argus-cli[llm,agent]'") from exc
+        agent = {
+            "agent": {
+                "workflow_id": "m4-langgraph-v1",
+                "langgraph_version": graph_version,
+                "max_reserved_calls": MAX_CALLS,
+                "repair_policy": "m4-langgraph-v1 bounded diagnostic repair",
+            }
+        }
     return {
+        "workflow": selected_workflow,
+        **agent,
+        "machine": {"platform": platform.platform(), "cpu_count": os.cpu_count()},
         "dataset_version": dataset["version"],
         "dataset_sha256": dataset_hash,
         "selected": selected,
@@ -147,6 +170,7 @@ def attempt_case(case, config, manifest):
                 "--config",
                 str(config),
                 "ask",
+                *(["--agent"] if workflow(manifest) == "agent" else []),
                 "--model",
                 manifest["model"]["name"],
                 "--retrieval-mode",
@@ -167,7 +191,7 @@ def attempt_case(case, config, manifest):
         )
         result["exit_code"] = process.returncode
         if not process.stdout:
-            result.update(error_category="cli_error", error=process.stderr.strip())
+            result.update(error_category="cli_error", error="Argus exited without a JSON report")
         else:
             captured = json.loads(process.stdout)
             report = captured["report"]
@@ -250,11 +274,30 @@ def verify_attempt(attempt, manifest):
     if report is None:
         return
     error = report.get("error", "").lower()
-    if any(term in error for term in ("index is stale", "changed during", "model changed")):
+    is_agent = workflow(manifest) == "agent"
+    expected_workflow = manifest["agent"]["workflow_id"] if is_agent else None
+    if report.get("workflow") != expected_workflow:
+        raise ValueError("Argus reported a different workflow")
+    if any(
+        term in error
+        for term in (
+            "index is stale",
+            "changed during",
+            "model changed",
+            "source or index changed",
+            "identity changed",
+        )
+    ):
         raise ValueError("Argus detected source or model drift during the run")
     provenance = report["provenance"]
-    if provenance is not None and any(provenance[k] != manifest["source"][k] for k in provenance):
-        raise ValueError("Argus reported a different MPML snapshot")
+    if provenance is not None:
+        if is_agent and provenance.get("index_sha256") != manifest["index_sha256"]:
+            raise ValueError("Argus reported a different index fingerprint")
+        if any(
+            provenance[key] != manifest["source"][key]
+            for key in ("git_sha", "dirty", "spec_sha256")
+        ):
+            raise ValueError("Argus reported a different MPML snapshot")
     model = report["model"]
     if model["name"] != manifest["model"]["name"] or (
         model["digest"] is not None and model["digest"] != manifest["model"]["digest"]
@@ -317,7 +360,7 @@ def resume_run(path, manifest, dataset, dataset_hash, execute=attempt_case):
                 sha(config.read_bytes()) != manifest["config_sha256"]
             ):
                 raise ValueError("Index or source configuration changed during the run")
-            run["attempts"][key] = attempt
+            run["attempts"][key] = {**attempt, "question": cases[key]["question"]}
             save(path, run, dataset, dataset_hash)
         return run["summary"]
 
@@ -329,8 +372,18 @@ def main(argv=None):
     sub = parser.add_subparsers(dest="operation", required=True)
     run = sub.add_parser("run", help="Run or resume a local benchmark")
     score = sub.add_parser("score", help="Recompute scores from a saved run without Ollama")
-    for command in (run, score):
-        command.add_argument("run_id", help="Local report name")
+    comparison = sub.add_parser(
+        "compare", help="Compare completed single-pass and agent reports offline"
+    )
+    for command in (run, score, comparison):
+        command.add_argument("run_id", help="Local report name (single-pass report for compare)")
+    comparison.add_argument("agent_run_id", help="Completed agent report name")
+    comparison.add_argument(
+        "--allow-provenance-mismatch",
+        action="store_true",
+        help="Compare differing source snapshots, indexes or retrieval settings with explicit flags",
+    )
+    run.add_argument("--workflow", choices=("single-pass", "agent"), default="single-pass")
     run.add_argument("--case", choices=ids, action="append", help="Select a case, repeatable")
     run.add_argument("--model", default="qwen2.5-coder:7b")
     run.add_argument("--retrieval", choices=("hybrid", "lexical"), default="hybrid")
@@ -340,16 +393,30 @@ def main(argv=None):
     run.add_argument("--timeout", type=float, default=300.0)
     run.add_argument("--wall-timeout", type=float, default=660.0)
     args = parser.parse_args(argv)
-    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}", args.run_id):
-        parser.error("run ID must be 1–80 letters, digits, dashes, or underscores")
-    path = REPORTS / f"{args.run_id}.json"
 
+    def report_path(run_id):
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}", run_id):
+            parser.error("run ID must be 1–80 letters, digits, dashes, or underscores")
+        return REPORTS / f"{run_id}.json"
+
+    def read_report(path):
+        saved = json.loads(path.read_bytes())
+        if saved["format"] != FORMAT:
+            raise ValueError("Unsupported report format")
+        return saved
+
+    path = report_path(args.run_id)
     try:
         if args.operation == "score":
-            saved = json.loads(path.read_bytes())
-            if saved["format"] != FORMAT:
-                raise ValueError("Unsupported report format")
-            summary = summarize(saved, dataset, dataset_hash)
+            summary = summarize(read_report(path), dataset, dataset_hash)
+        elif args.operation == "compare":
+            summary = compare(
+                read_report(path),
+                read_report(report_path(args.agent_run_id)),
+                dataset,
+                dataset_hash,
+                allow_provenance_mismatch=args.allow_provenance_mismatch,
+            )
         else:
             if not (
                 args.model.strip()

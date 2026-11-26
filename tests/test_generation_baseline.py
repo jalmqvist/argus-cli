@@ -279,7 +279,8 @@ def test_cli_attempt_errors_are_persistable(run_data, monkeypatch):
     assert call.call_args.kwargs["timeout"] == 660
 
 
-def test_manifest_uses_pinned_index_and_model_metadata(run_data, monkeypatch):
+@pytest.mark.parametrize("workflow", ["single-pass", "agent"])
+def test_manifest_uses_pinned_index_and_model_metadata(run_data, monkeypatch, workflow):
     from argus_cli import ollama, retrieval
     from argus_cli import provenance as git_provenance
     from argus_cli.config import Source
@@ -316,7 +317,9 @@ def test_manifest_uses_pinned_index_and_model_metadata(run_data, monkeypatch):
     monkeypatch.setattr(
         git_provenance, "revision", lambda _: git_provenance.Revision("argus-sha", False)
     )
+    monkeypatch.setattr(baseline, "version", lambda _: "fixture-version")
     args = argparse.Namespace(
+        workflow=workflow,
         config=Path(manifest["config"]),
         model="toy",
         retrieval="hybrid",
@@ -327,6 +330,13 @@ def test_manifest_uses_pinned_index_and_model_metadata(run_data, monkeypatch):
     )
 
     observed = baseline.live_manifest(args, dataset, "fixture-hash", manifest["selected"])
+    assert observed["workflow"] == workflow
+    if workflow == "agent":
+        assert observed["agent"]["workflow_id"] == "m4-langgraph-v1"
+        assert observed["agent"]["max_reserved_calls"] == 3
+        assert observed["agent"]["langgraph_version"]
+    else:
+        assert "agent" not in observed
     assert observed["source"] == source_info
     assert observed["retrieval"]["embedding"] == index["embeddings"]
     assert observed["model"] == manifest["model"]
