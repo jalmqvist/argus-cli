@@ -3,6 +3,8 @@
 import os
 import re
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from types import MappingProxyType
 
 from pydantic import JsonValue, ValidationError
@@ -94,8 +96,24 @@ def _proposal_route(question, route):
     return None
 
 
+@dataclass(frozen=True)
+class FirstProposal:
+    outcome: str
+    argv: tuple[str, ...]
+    env: tuple[tuple[str, str], ...]
+    retrieved_ids: tuple[str, ...]
+    cited_ids: tuple[str, ...]
+    unresolved_citations: int
+    uncertain: bool
+
+
 def run(
-    source: Source, question: str, *, model: str, settings: GenerationSettings
+    source: Source,
+    question: str,
+    *,
+    model: str,
+    settings: GenerationSettings,
+    inspect_first_proposal: Callable[[FirstProposal], None] | None = None,
 ) -> tuple[dict, int]:
     start = time.monotonic()
     route = _route(question)
@@ -204,6 +222,20 @@ def run(
         )
     trace["generation_seconds"] = round(time.monotonic() - generation_start, 6)
     trace["model_digest"] = digest
+
+    if inspect_first_proposal is not None:
+        prompt_ids = evidence_by_prompt_id(evidence)
+        inspect_first_proposal(
+            FirstProposal(
+                proposal.outcome,
+                tuple(proposal.argv),
+                tuple(proposal.env.items()),
+                tuple(item["id"] for item in evidence),
+                tuple(prompt_ids[key]["id"] for key in proposal.evidence_ids if key in prompt_ids),
+                sum(key not in prompt_ids for key in proposal.evidence_ids),
+                bool(proposal.uncertainty),
+            )
+        )
 
     if proposal.outcome == "abstain":
         if proposal.argv or proposal.env or not proposal.uncertainty:

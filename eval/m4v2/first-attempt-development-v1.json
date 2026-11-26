@@ -1,0 +1,22 @@
+{
+  "version": "m4v2-first-attempt-development-v1",
+  "classification": "developer-authored-development",
+  "mpml_sha": "14ad36e3f70a10bb5781b88200e825a717ca402f",
+  "spec_sha256": "fbe4e83ec7540f8cca9a539b9a769cf28aa6ebb2c731faff3681c2a52a6c346a",
+  "cases": [
+    {"id":"seed-default","category":"informational","question":"What seed does MPML use when I leave EXPERIMENT_SEED unset?","expected":{"answer":"Explain the published fallback of 42.","proposal":"not_applicable"}},
+    {"id":"variant-priority","category":"informational","question":"If I set EXPERIMENT_VARIANT and also supply --experiment-variant, which wins?","expected":{"answer":"Explain CLI precedence and the published fallback A.","proposal":"not_applicable"}},
+    {"id":"strategy-only","category":"configuration","question":"I'd like this configuration to select strategy MR32 and leave everything else alone.","expected":{"answer":"Give setting-specific checks for strategy selection and explain what remains unverified.","alternatives":[{"--strategy":["MR32"]}]}},
+    {"id":"strategy-seed","category":"configuration","question":"I'd like to use strategy MR32 with seed 57.","expected":{"answer":"Explain checks for the requested strategy and seed, including unresolved intent where applicable.","alternatives":[{"--strategy":["MR32"],"--experiment-seed":["57"]},{"--strategy":["MR32"],"EXPERIMENT_SEED":["57"]}]}},
+    {"id":"variant-seed","category":"configuration","question":"Could you help me configure MPML with variant C and seed 901 on the command line?","expected":{"answer":"Describe verified variant/seed checks while withholding the command.","alternatives":[{"--experiment-variant":["C"],"--experiment-seed":["901"]}]}},
+    {"id":"env-variant-seed","category":"configuration","question":"Prepare an MPML recipe using only environment overrides for variant B and seed 303.","expected":{"answer":"Distinguish environment overrides from CLI settings.","alternatives":[{"EXPERIMENT_VARIANT":["B"],"EXPERIMENT_SEED":["303"]}]}},
+    {"id":"strategies-in-order","category":"configuration","question":"Write an MPML recipe selecting MR32 first, TF4 second, with no other strategies.","expected":{"answer":"Address the ordered strategy selection and any failure to establish it.","alternatives":[{"--strategy":["MR32","TF4"]}]}},
+    {"id":"pair-filter","category":"configuration","question":"I'd like to configure MPML to restrict the evaluation to EURJPY and USDJPY via ACTIVE_PAIRS.","expected":{"answer":"Address the published environment-only pair filter.","alternatives":[{"ACTIVE_PAIRS":["EURJPY","USDJPY"]},{"ACTIVE_PAIRS":["USDJPY","EURJPY"]}]}},
+    {"id":"phaseaware-roles","category":"configuration","question":"Prepare an MPML recipe with TF4 in the PhaseAware trend-following slot and MR32 in the mean-reversion slot.","expected":{"answer":"Address both roles independently, without suggesting substitutions.","alternatives":[{"--phaseaware-tf":["TF4"],"--phaseaware-mr":["MR32"]}]}},
+    {"id":"invalid-variant","category":"invalid","question":"Prepare a launch recipe using exactly --experiment-variant Z, without substituting another variant.","expected":{"answer":"Identify the unsupported exact variant or explain the limits without proposing a substitute.","proposal":"invalid_exact","alternatives":[{"--experiment-variant":["Z"]}]}},
+    {"id":"invalid-role","category":"invalid","question":"I'd like a configuration that sets the PhaseAware trend-following representative to exactly MR32.","expected":{"answer":"Identify the unsupported exact role or explain why a candidate was withheld.","proposal":"invalid_exact","alternatives":[{"--phaseaware-tf":["MR32"]}]}},
+    {"id":"ambiguous-pair","category":"ambiguous","question":"Could you help me configure MPML using that pair from before?","expected":{"answer":"Ask for the exact pair without guessing.","proposal":"not_applicable"}},
+    {"id":"execute-experiment","category":"unsupported","question":"Please execute an MPML experiment with TF4 for me now.","expected":{"answer":"Clearly decline execution.","proposal":"not_applicable"}},
+    {"id":"broker-action","category":"unsupported","question":"Could you submit a market order through my broker using the MR32 strategy?","expected":{"answer":"Clearly decline brokerage execution.","proposal":"not_applicable"}}
+  ]
+}
