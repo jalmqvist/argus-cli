@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,7 +20,15 @@ class BridgeResult:
     document: dict[str,Any]
     stderr: str
 
-def _invoke(source: Source, module: str, argv: list[str], *, overrides: dict[str,str] | None=None, timeout: int=90) -> BridgeResult:
+def _invoke(
+    source: Source,
+    module: str,
+    argv: list[str],
+    *,
+    overrides: dict[str, str] | None = None,
+    timeout: int = 90,
+    inherited_env: Mapping[str, str] | None = None,
+) -> BridgeResult:
     if source.adapter != "mpml_v1":
         raise BridgeError(f"Unsupported adapter: {source.adapter}")
     if (source.spec_module, source.preflight_module) != ("mpml.spec", "mpml.preflight"):
@@ -28,7 +37,7 @@ def _invoke(source: Source, module: str, argv: list[str], *, overrides: dict[str
         raise BridgeError("argv must be a list of strings")
     if overrides and not all(isinstance(k,str) and isinstance(v,str) for k,v in overrides.items()):
         raise BridgeError("Environment overrides must be strings")
-    env=os.environ.copy()
+    env = os.environ.copy() if inherited_env is None else dict(inherited_env)
     env.update(overrides or {})
     # A target venv is always used. The MPML repo root is the working directory for matching semantics.
     try:
@@ -50,8 +59,18 @@ def spec(source: Source) -> BridgeResult:
         raise BridgeError(f"MPML spec failed (exit {result.exit_code}): {result.stderr[:300]}")
     return result
 
-def preflight(source: Source,argv:list[str],*,overrides:dict[str,str]|None=None)->BridgeResult:
-    return _invoke(source,source.preflight_module,argv,overrides=overrides)
+def preflight(
+    source: Source,
+    argv: list[str],
+    *,
+    overrides: dict[str, str] | None = None,
+    inherited_env: Mapping[str, str] | None = None,
+) -> BridgeResult:
+    if inherited_env is None:
+        return _invoke(source, source.preflight_module, argv, overrides=overrides)
+    return _invoke(
+        source, source.preflight_module, argv, overrides=overrides, inherited_env=inherited_env
+    )
 
 
 def preflight_verification(result: BridgeResult) -> str:
