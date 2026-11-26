@@ -1,11 +1,11 @@
 # ADR 0004 — Bounded LangGraph orchestration for MPML
 
-**Status:** Designed in M4A. M4B-1 provides the offline skeleton.
-Live generation and repair integration are planned for M4B-2.
+**Status:** M4B-2 wires the graph to the existing interfaces through opt-in
+`argus ask --agent`. Comparative evaluation is planned for M4C.
 
 M3.5 recorded clean preflight alongside wrong intent in 3 Qwen, 2 Gemma, and
 4 Llama cases. It also found representation failures that could be corrected
-without changing the request. M4B will add a small, optional LangGraph workflow
+without changing the request. M4B provides a small, optional LangGraph workflow
 around the existing M2 retriever, M3 generator and validators, and MPML bridge.
 Use Qwen2.5-Coder 7B for initial development based on the recorded comparison.
 [Baseline findings](../evaluation/M3_5_GENERATION_BASELINE_FINDINGS.md)
@@ -30,7 +30,7 @@ states `validated`, `validated_with_warnings`, `rejected`, `abstained`, and
 `unverified`. Release warnings directly from MPML. Earlier attempts retain their
 errors and warnings even if a later candidate passes.
 
-## M4B-1 state transitions
+## State transitions
 
 ```mermaid
 flowchart TD
@@ -46,6 +46,7 @@ flowchart TD
     preflight -->|Authoritative result| check_intent
     check_intent --> decide
     decide --> record
+    generate -->|Malformed candidate| decide
     generate -->|Failed or interrupted| record
     preflight -->|Bridge failure or drift| record
     record -->|Repairable, new proposal, budget remains| reserve
@@ -60,20 +61,27 @@ flowchart TD
     finish --> unverified[Unverified]
 ```
 
-The skeleton injects trusted source verification, retrieval, generation,
-structural validation and preflight callbacks. Tests use scripted proposals and
-reuse the existing validation helpers. The graph itself only marks a candidate
-as eligible for release. Command rendering and live callback wiring belong to
-M4B-2. An authoritative rejection is terminal in M4B-1. The retry loop exercises
-structural failures classified as retryable and explicit intent violations after
-successful preflight. There is no model-generated repair feedback in this slice.
+The live adapter injects verified retrieval, generation, validation and preflight
+callbacks. It loads the verified index once for ranking and rechecks the source
+and index fingerprint at graph gates. The trusted repair callback receives
+the original request, frozen constraints and the previous attempt. It passes
+a structured, redacted projection to the same Ollama generator. The initial
+generation keeps the M3 prompt. Each repair checks the pinned model digest
+before requesting generation.
+
+Authoritative preflight rejection is terminal under the current policy. The
+report also identifies any explicit intent violation on that attempt. Repair
+covers recoverable schema output, option or citation defects, and explicit
+intent violations after successful preflight. The shared renderer receives
+only the final accepted candidate. Raw authoritative MPML findings remain
+available in the final report and attempt history.
 
 The initial extractor accepts anchored phrases for strategy and pair selection,
 repeated flags, defaults, exact pair overrides, selected CLI/env exclusivity
 and precedence patterns, and explicit PhaseAware roles. Unknown values stay
 available for MPML to reject. Quoted examples, negations, qualifiers, ambiguous
 references and unsupported wording produce no extracted constraints. Requests
-outside coverage abstain in the skeleton. Passing the checks establishes
+outside coverage abstain in the graph. Passing the checks establishes
 consistency with the recorded source spans only.
 
 ## Three validation boundaries
@@ -132,7 +140,7 @@ and runtime success remain unverified.
 | Unsupported broker action | Abstain immediately when identified. No repair or tool call may attempt the operation. |
 | DL activation or artifact-loading proof | Abstain when proof is requested or activation remains unverified. Preserve actual preflight findings, including strict boolean or alias diagnostics. Never change the DL value to obtain release. |
 | Fabricated, unsupported or missing citations | Repair only with the already retrieved, verified evidence and a factual citation failure reason. Abstain if support is absent. |
-| Authoritative preflight rejection | Return `rejected` for an exact invalid request. Repair only an identified representational defect when correction preserves all constraints. Keep the original rejection in the attempt history. |
+| Authoritative preflight rejection | Return `rejected` and record whether the candidate matched the explicit request. Keep the original rejection in the attempt history. This release treats all authoritative rejections as terminal. |
 | Stale evidence, source/index or model drift, malformed or unavailable preflight, generation transport failure or timeout | Stop `unverified`. Source integrity and infrastructure errors are non-retryable within the graph. |
 
 Allow at most **two additional generation attempts** after the initial one.
@@ -177,13 +185,11 @@ model-controlled candidate content. The minimal shape is:
 The graph has no LLM tool bindings, arbitrary filesystem access, network
 services beyond the existing local Ollama path, persistent agent memory, or
 experiment execution. It never launches `main.py`, generated commands, artifact
-loading, or brokerage operations. M4B should expose the graph as an explicit
-opt-in with a lazy optional LangGraph import. Default `argus ask` and the historical
+loading, or brokerage operations. The graph is an explicit opt-in with a lazy optional LangGraph import. Default `argus ask` and the historical
 M3 evaluator remain single-pass. If the graph is requested without the extra,
 give an actionable dependency error. Other commands continue to work.
 
-M4B should test graph routing and call budgets offline with synthetic generator
-and preflight responses. The main unresolved risks are false confidence from
+Graph and adapter tests use synthetic generation and preflight responses. The main unresolved risks are false confidence from
 over-broad extraction, unnecessary abstention from narrow patterns, and the
 latency of extra model calls. Defer holdout claims to M4C.
 [Evaluation protocol](../evaluation/M4_EVALUATION_SPEC.md)

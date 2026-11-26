@@ -74,9 +74,14 @@ def generate(
     evidence: list[dict],
     model: str,
     settings: GenerationSettings,
+    *,
+    repair_context: dict | None = None,
+    expected_digest: str | None = None,
 ) -> tuple[Candidate, str]:
     try:
         digest = model_digest(model)
+        if expected_digest is not None and digest != expected_digest:
+            raise GenerationError("Ollama model changed between generation attempts")
         model_info = _request("show", {"model": model})
         if model_info.get("remote_model") or model_info.get("remote_host"):
             raise GenerationError("Ollama cloud models are unsupported")
@@ -106,7 +111,16 @@ def generate(
             for key, item in evidence_by_prompt_id(evidence).items()
         ],
     }
-    messages = [("system", SYSTEM_PROMPT), ("human", json.dumps(payload))]
+    prompt = SYSTEM_PROMPT
+    if repair_context is not None:
+        payload["repair"] = repair_context
+        prompt += (
+            "\nCorrect the reported defect using the original question and the same evidence. "
+            "Preserve the supplied constraints. Never change the requested strategy, role, "
+            "pair selection, setting channel, or value to make preflight pass. If the exact "
+            "request cannot be supported, abstain with a nonempty uncertainty reason."
+        )
+    messages = [("system", prompt), ("human", json.dumps(payload))]
     deadline = time.monotonic() + timeout
     content = ""
     output_limit_reached = False

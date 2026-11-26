@@ -250,8 +250,19 @@ def source_matches(source: Source, metadata: dict) -> bool:
 
 def retrieve_context(source: Source, query: str, mode: str, limit: int) -> tuple[dict, dict, dict]:
     """Return rankings with the live source metadata and spec used to verify the index."""
+    document, metadata, spec_document, _ = verified_index(source)
+    return rank_verified_index(document, query, mode, limit), metadata, spec_document
+
+
+def index_sha256() -> str:
+    return hashlib.sha256(INDEX.read_bytes()).hexdigest()
+
+
+def verified_index(source: Source) -> tuple[dict, dict, dict, str]:
+    """Load and verify a single index snapshot without embedding a query."""
     try:
-        document = json.loads(INDEX.read_text(encoding="utf-8"))
+        raw = INDEX.read_bytes()
+        document = json.loads(raw.decode("utf-8"))
     except (FileNotFoundError, ValueError) as exc:
         raise RetrievalError("Missing or unreadable index; run argus index") from exc
     if not isinstance(document, dict) or document.get("version") != 1:
@@ -264,7 +275,11 @@ def retrieve_context(source: Source, query: str, mode: str, limit: int) -> tuple
         ) from exc
     if document.get("source") != metadata or document.get("chunks") != chunks:
         raise RetrievalError("MPML index is stale; rebuild with argus index")
+    return document, metadata, spec_document, hashlib.sha256(raw).hexdigest()
 
+
+def rank_verified_index(document: dict, query: str, mode: str, limit: int) -> dict:
+    chunks = document["chunks"]
     rankings = {}
     if mode != "embedding":
         rankings["lexical"] = _lexical(chunks, query)
@@ -277,8 +292,7 @@ def retrieve_context(source: Source, query: str, mode: str, limit: int) -> tuple
                 scores[index] += 1 / (60 + rank)
         rankings["hybrid"] = sorted(scores, key=lambda i: (-scores[i], chunks[i]["id"]))
     selected = rankings if mode == "all" else {mode: rankings[mode]}
-    report = {
+    return {
         "query": query,
         "results": {name: [chunks[i] for i in ranks[:limit]] for name, ranks in selected.items()},
     }
-    return report, metadata, spec_document

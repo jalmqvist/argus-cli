@@ -156,8 +156,21 @@ and preflight. [Trust boundary ADR](docs/adr/0003-structured-generation.md)
 
 ## M4 architecture
 
-M3 is the operational single-pass workflow. M4B-1 adds an offline graph and
-deterministic intent checks. M4B-2 plans to connect live generation and repair.
+M3 remains the default single-pass workflow. M4B-2 connects the optional graph
+to local generation, preflight, and bounded repair.
+
+```bash
+python -m pip install -e '.[llm,agent]'
+argus ask "How do I evaluate MR32 on USDJPY?" --agent
+```
+
+The agent uses the same source configuration, index, and local model settings
+as `ask`. It reserves at most three calls, including the first generation,
+and keeps retrieval evidence and explicit constraints fixed during repair.
+Each new candidate goes through the validation gates again. The JSON report
+records the final disposition, source and index fingerprints, call and repair
+counts, per-attempt findings, and end-to-end time. MPML diagnostics are preserved
+as returned. Repair feedback excludes raw model output and bridge stderr.
 
 ```mermaid
 flowchart TD
@@ -180,9 +193,11 @@ flowchart TD
     P -->|Unavailable or drift| U
 ```
 
-Install the optional `agent` extra to run the graph tests. The skeleton uses
-scripted stages and exposes release eligibility to tests. The CLI continues
-to use the M3 workflow. [Detailed graph and limits](docs/adr/0004-bounded-langgraph-orchestration.md)
+The extractor covers narrow patterns. Otherwise reasonable wording can result
+in an abstention, with the reason visible in the report. A released command is
+for manual use. Explicit-intent consistency covers the extracted requirements.
+Full semantic intent, experiment success, artifact loading, and DL activation
+remain unverified. [Detailed graph and limits](docs/adr/0004-bounded-langgraph-orchestration.md)
 
 ## Key repo files
 
