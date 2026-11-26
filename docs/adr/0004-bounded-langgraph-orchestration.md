@@ -1,6 +1,7 @@
 # ADR 0004 — Bounded LangGraph orchestration for MPML
 
-**Status:** Proposed in M4A. Runtime implementation is planned for M4B.
+**Status:** Designed in M4A. M4B-1 provides the offline skeleton.
+Live generation and repair integration are planned for M4B-2.
 
 M3.5 recorded clean preflight alongside wrong intent in 3 Qwen, 2 Gemma, and
 4 Llama cases. It also found representation failures that could be corrected
@@ -28,6 +29,52 @@ citation resolution and, if eligible, preflight and intent checks. Keep terminal
 states `validated`, `validated_with_warnings`, `rejected`, `abstained`, and
 `unverified`. Release warnings directly from MPML. Earlier attempts retain their
 errors and warnings even if a later candidate passes.
+
+## M4B-1 state transitions
+
+```mermaid
+flowchart TD
+    START([Start]) --> verify
+    verify -->|Snapshot verified| retrieve
+    retrieve -->|Evidence pinned| extract_intent
+    extract_intent -->|Enforced constraints| reserve
+    reserve -->|Slot reserved| generate
+    generate -->|Proposal| validate
+    validate -->|Valid recipe| preflight
+    validate -->|Valid abstention| check_intent
+    validate -->|Schema or citation failure| decide
+    preflight -->|Authoritative result| check_intent
+    check_intent --> decide
+    decide --> record
+    generate -->|Failed or interrupted| record
+    preflight -->|Bridge failure or drift| record
+    record -->|Repairable, new proposal, budget remains| reserve
+    record -->|Terminal or exhausted| finish
+    verify -->|Unverified| finish
+    retrieve -->|Unverified or no evidence| finish
+    extract_intent -->|Unresolved or outside coverage| finish
+    reserve -->|Drift or cap| finish
+    finish -->|All gates pass and snapshot is current| released[Validated or validated with warnings]
+    finish --> rejected[Rejected]
+    finish --> abstained[Abstained]
+    finish --> unverified[Unverified]
+```
+
+The skeleton injects trusted source verification, retrieval, generation,
+structural validation and preflight callbacks. Tests use scripted proposals and
+reuse the existing validation helpers. The graph itself only marks a candidate
+as eligible for release. Command rendering and live callback wiring belong to
+M4B-2. An authoritative rejection is terminal in M4B-1. The retry loop exercises
+structural failures classified as retryable and explicit intent violations after
+successful preflight. There is no model-generated repair feedback in this slice.
+
+The initial extractor accepts anchored phrases for strategy and pair selection,
+repeated flags, defaults, exact pair overrides, selected CLI/env exclusivity
+and precedence patterns, and explicit PhaseAware roles. Unknown values stay
+available for MPML to reject. Quoted examples, negations, qualifiers, ambiguous
+references and unsupported wording produce no extracted constraints. Requests
+outside coverage abstain in the skeleton. Passing the checks establishes
+consistency with the recorded source spans only.
 
 ## Three validation boundaries
 
