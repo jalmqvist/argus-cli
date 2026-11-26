@@ -199,6 +199,26 @@ for manual use. Explicit-intent consistency covers the extracted requirements.
 Full semantic intent, experiment success, artifact loading, and DL activation
 remain unverified. [Detailed graph and limits](docs/adr/0004-bounded-langgraph-orchestration.md)
 
+## Deterministic MPML explanations
+
+Use `--agent-v2` to ask about documented MPML options without starting Ollama.
+Install the `llm` extra for the v2 JSON schema and build a lexical index from a
+clean MPML checkout with `argus index`. An existing fresh index also works.
+
+```sh
+argus ask --agent-v2 "What happens if ACTIVE_PAIRS is unset?"
+argus ask --agent-v2 "Which takes precedence, --experiment-seed or EXPERIMENT_SEED?"
+```
+
+The JSON response uses `argus-response-v2.0` and cites exact specification entries
+for CLI and environment defaults, precedence, read timing, source-edit-only
+settings and diagnostic meanings. Use exact MPML names for the best coverage.
+Answers describe documented launch behavior and carry no command or candidate
+settings. Exit code 0 indicates a grounded answer, 1 indicates withholding or
+a question that needs clarification, and 2 indicates unavailable verification
+or a CLI error. `--agent-v2` and `--agent` are mutually exclusive.
+
+
 ## Key repo files
 
 - `PLAN.md`: updated implementation roadmap and evaluation strategy

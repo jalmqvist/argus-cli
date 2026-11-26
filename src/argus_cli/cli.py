@@ -61,7 +61,9 @@ def main(argv:list[str]|None=None)->int:
     search.add_argument("--limit", type=int, default=5)
     answer = sub.add_parser("ask", help="Generate and preflight a cited MPML recipe")
     answer.add_argument("question")
-    answer.add_argument("--agent", action="store_true", help="Use bounded LangGraph orchestration")
+    workflows = answer.add_mutually_exclusive_group()
+    workflows.add_argument("--agent", action="store_true", help="Use bounded LangGraph orchestration")
+    workflows.add_argument("--agent-v2", action="store_true", help="Explain verified MPML settings")
     answer.add_argument("--model", default="qwen2.5-coder:7b")
     answer.add_argument(
         "--retrieval-mode", choices=("lexical", "embedding", "hybrid"), default="hybrid"
@@ -89,6 +91,19 @@ def main(argv:list[str]|None=None)->int:
         if "mpml" not in sources: raise ConfigError("Missing mpml source")
         source=sources["mpml"]
         if args.command == "ask":
+            if args.agent_v2:
+                try:
+                    from argus_cli.v2_answer import answer as explain_v2
+                except ModuleNotFoundError:
+                    print(
+                        "argus ask --agent-v2 requires pydantic; install argus-cli[llm]",
+                        file=sys.stderr,
+                    )
+                    return 2
+
+                response, exit_code = explain_v2(source, args.question)
+                print(response.model_dump_json(indent=2))
+                return exit_code
             try:
                 from argus_cli.ask import ask
                 from argus_cli.generation import GenerationSettings
@@ -148,6 +163,14 @@ def main(argv:list[str]|None=None)->int:
         ConfigError, BridgeError, EmbeddingError, RetrievalError, OSError, UnicodeError,
         subprocess.SubprocessError,
     ) as exc:
+        if args.command == "ask" and args.agent_v2:
+            try:
+                from argus_cli.v2_answer import unavailable
+            except ModuleNotFoundError:
+                pass
+            else:
+                print(unavailable(args.question).model_dump_json(indent=2))
+                return 2
         print(f"argus: {exc}",file=sys.stderr)
         return 2
 
