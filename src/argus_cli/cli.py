@@ -1,4 +1,5 @@
 """Read-only commands for inspecting and preflighting MPML launches."""
+
 from __future__ import annotations
 
 import argparse
@@ -7,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from argus_cli import __version__
 from argus_cli.adapters.mpml import BridgeError, preflight, spec
 from argus_cli.config import ConfigError, load_sources
 from argus_cli.mpml_help import describe
@@ -31,15 +33,20 @@ class _CommandParser(argparse.ArgumentParser):
         return super().parse_known_args(args, namespace)
 
 
-def main(argv:list[str]|None=None)->int:
-    parser=argparse.ArgumentParser(prog="argus",description="Read-only local CLI research assistant")
-    parser.add_argument("--config",type=Path,default=Path("sources.yaml"))
-    sub=parser.add_subparsers(dest="command",required=True,parser_class=_CommandParser)
-    sub.add_parser("doctor",help="Check source configuration and print git revision")
-    sub.add_parser("spec",help="Read published MPML CLI specification")
-    check=sub.add_parser("preflight",help="Validate proposed MPML argv without running experiments")
-    check.add_argument("--env",action="append",default=[],metavar="KEY=VALUE")
-    check.add_argument("args",nargs=argparse.REMAINDER,help="Pass MPML args after --")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="argus", description="Read-only local CLI research assistant"
+    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--config", type=Path, default=Path("sources.yaml"))
+    sub = parser.add_subparsers(dest="command", required=True, parser_class=_CommandParser)
+    sub.add_parser("doctor", help="Check source configuration and print git revision")
+    sub.add_parser("spec", help="Read published MPML CLI specification")
+    check = sub.add_parser(
+        "preflight", help="Validate proposed MPML argv without running experiments"
+    )
+    check.add_argument("--env", action="append", default=[], metavar="KEY=VALUE")
+    check.add_argument("args", nargs=argparse.REMAINDER, help="Pass MPML args after --")
     inspect = sub.add_parser("inspect", help="Look up an exact MPML flag or environment variable")
     inspect.accepts_flag_query = True
     inspect.add_argument("query", metavar="flag-or-env")
@@ -62,8 +69,14 @@ def main(argv:list[str]|None=None)->int:
     answer = sub.add_parser("ask", help="Generate and preflight a cited MPML recipe")
     answer.add_argument("question")
     workflows = answer.add_mutually_exclusive_group()
-    workflows.add_argument("--agent", action="store_true", help="Use bounded LangGraph orchestration")
-    workflows.add_argument("--agent-v2", action="store_true", help="Explain verified MPML settings or assess one local proposal")
+    workflows.add_argument(
+        "--agent", action="store_true", help="Use bounded LangGraph orchestration"
+    )
+    workflows.add_argument(
+        "--agent-v2",
+        action="store_true",
+        help="Explain verified MPML settings or assess one local proposal",
+    )
     answer.add_argument("--model", default="qwen2.5-coder:7b")
     answer.add_argument(
         "--retrieval-mode", choices=("lexical", "embedding", "hybrid"), default="hybrid"
@@ -71,7 +84,7 @@ def main(argv:list[str]|None=None)->int:
     answer.add_argument("--temperature", type=float, default=0.0)
     answer.add_argument("--seed", type=int, default=42)
     answer.add_argument("--timeout", type=float, default=180.0, metavar="SECONDS")
-    args=parser.parse_args(argv)
+    args = parser.parse_args(argv)
     if args.command == "ask" and not (
         args.question.strip()
         and len(args.question) <= 4000
@@ -87,9 +100,10 @@ def main(argv:list[str]|None=None)->int:
     if args.command == "retrieve" and (args.limit < 1 or not args.query.strip()):
         search.error("retrieve requires a nonblank query and a positive --limit")
     try:
-        sources=load_sources(args.config)
-        if "mpml" not in sources: raise ConfigError("Missing mpml source")
-        source=sources["mpml"]
+        sources = load_sources(args.config)
+        if "mpml" not in sources:
+            raise ConfigError("Missing mpml source")
+        source = sources["mpml"]
         if args.command == "ask":
             if args.agent_v2:
                 try:
@@ -138,13 +152,23 @@ def main(argv:list[str]|None=None)->int:
             )
             print(json.dumps(report, indent=2))
             return 0 if report["command"] is not None else 1
-        if args.command=="doctor":
-            info=revision(source.root)
-            print(json.dumps({"source":"mpml","root":str(source.root),"python":str(source.python),
-                "sha":info.sha,"dirty":info.dirty},indent=2))
+        if args.command == "doctor":
+            info = revision(source.root)
+            print(
+                json.dumps(
+                    {
+                        "source": "mpml",
+                        "root": str(source.root),
+                        "python": str(source.python),
+                        "sha": info.sha,
+                        "dirty": info.dirty,
+                    },
+                    indent=2,
+                )
+            )
             return 0
-        if args.command=="spec":
-            print(json.dumps(spec(source).document,indent=2))
+        if args.command == "spec":
+            print(json.dumps(spec(source).document, indent=2))
             return 0
         if args.command in {"inspect", "explain", "recipe"}:
             report, exit_code = describe(source, args.command, args.query)
@@ -157,18 +181,25 @@ def main(argv:list[str]|None=None)->int:
                 report = retrieve(source, args.query, args.mode, args.limit)
             print(json.dumps(report, indent=2))
             return 0
-        overrides={}
+        overrides = {}
         for item in args.env:
-            if "=" not in item: raise ConfigError("--env requires KEY=VALUE")
-            k,v=item.split("=",1)
-            if not k: raise ConfigError("--env requires nonempty KEY")
-            overrides[k]=v
-        mpml_args=args.args[1:] if args.args and args.args[0]=="--" else args.args
-        result=preflight(source,mpml_args,overrides=overrides)
-        print(json.dumps(result.document,indent=2))
+            if "=" not in item:
+                raise ConfigError("--env requires KEY=VALUE")
+            k, v = item.split("=", 1)
+            if not k:
+                raise ConfigError("--env requires nonempty KEY")
+            overrides[k] = v
+        mpml_args = args.args[1:] if args.args and args.args[0] == "--" else args.args
+        result = preflight(source, mpml_args, overrides=overrides)
+        print(json.dumps(result.document, indent=2))
         return result.exit_code
     except (
-        ConfigError, BridgeError, EmbeddingError, RetrievalError, OSError, UnicodeError,
+        ConfigError,
+        BridgeError,
+        EmbeddingError,
+        RetrievalError,
+        OSError,
+        UnicodeError,
         subprocess.SubprocessError,
     ) as exc:
         if args.command == "ask" and args.agent_v2:
@@ -179,8 +210,9 @@ def main(argv:list[str]|None=None)->int:
             else:
                 print(unavailable(args.question).model_dump_json(indent=2))
                 return 2
-        print(f"argus: {exc}",file=sys.stderr)
+        print(f"argus: {exc}", file=sys.stderr)
         return 2
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     raise SystemExit(main())

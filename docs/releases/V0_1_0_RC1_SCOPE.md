@@ -1,6 +1,6 @@
 # v0.1.0rc1 — Read-only developer preview: release scope and acceptance
 
-**Status:** Release candidate planned, **not yet built, smoke-tested, tagged or published**. This document fixes scope and release decisions; implementation, packaging and actual acceptance evidence belong to a separate release-preparation PR.
+**Status:** Release preparation is under review. Maintainer-local acceptance, tagging and publication remain pending. See the [acceptance checklist](V0_1_0_RC1_ACCEPTANCE.md).
 
 ## Decision and positioning
 
@@ -18,7 +18,7 @@ Ship an installable, clearly limited **MPML-first, local, read-only research CLI
 
 ## Recorded engineering evidence, not generalization
 
-The pinned, developer-authored 14-case M4v2-3A/B/C fixture used a clean MPML source/spec/index and local `qwen2.5-coder:7b` on GTX 1070 (8 GB). In a same-fixture paired development rerun, exact-correct candidates on the **seven supported configuration cases** went **3/7 → 5/7**; incorrect candidate grades went 4 → 2; both invalid-exact cases preserved the requested invalid option and failed structural verification. Nine generation attempts had median generation **6.804 s** and p95 **9.153 s**; total median over all 14 cases **8.100 s**. **No v2 commands were released.** See [paired findings](../eval/m4v2/PAIRED_FINDINGS_3C.md). These are small, exposed development samples, not independent holdout results or evidence of release safety across unseen requests. Human factual/usefulness ratings remain unresolved.
+The pinned, developer-authored 14-case M4v2-3A/B/C fixture used a clean MPML source/spec/index and local `qwen2.5-coder:7b` on GTX 1070 (8 GB). In a same-fixture paired development rerun, exact-correct candidates on the **seven supported configuration cases** went **3/7 → 5/7**; incorrect candidate grades went 4 → 2; both invalid-exact cases preserved the requested invalid option and failed structural verification. Nine generation attempts had median generation **6.804 s** and p95 **9.153 s**; total median over all 14 cases **8.100 s**. **No v2 commands were released.** See [paired findings](../../eval/m4v2/PAIRED_FINDINGS_3C.md). These are small, exposed development samples, not independent holdout results or evidence of release safety across unseen requests. Human factual/usefulness ratings remain unresolved.
 
 Known recurring first-proposal errors: environment-only requests may be answered with extra CLI selectors despite explicit channel constraints, and `ACTIVE_PAIRS` requests may omit the pair-filter override. The current checks withhold a v2 recipe rather than silently release those candidates. Future work will investigate causes before tuning or introducing repairs.
 

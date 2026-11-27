@@ -1,252 +1,91 @@
-# argus-cli
+# Argus CLI
 
-Local, privacy-preserving, **read-only** research CLI assistant. An MPML-first portfolio
-project demonstrating deterministic tool integration, local LLMs, structured generation,
-RAG, validation and measured agent reliability.
+Argus is a local, read-only research assistant for developers working with
+[MPML](docs/releases/V0_1_0_RC1_SCOPE.md). The `v0.1.0rc1` developer preview
+inspects the published MPML specification, retrieves cited local evidence,
+runs explicit read-only preflight, and offers qualified configuration guidance
+through `argus ask --agent-v2`.
 
-**Preview scope:** MPML specification inspection, source-grounded explanation, local retrieval, read-only preflight, and opt-in local-Qwen configuration assessment. The recommended advisory interface is `argus ask --agent-v2`; it does **not** release a validated manual recipe or public candidate settings. Historical `argus ask` (M3 default) and `--agent` (M4 v1) can produce manual commands under different, incomplete intent checks; treat them as experimental rather than equivalent to v2.
+## Quickstart
 
-The first developer-preview release candidate (`v0.1.0rc1`) is **planned, not yet published**. See [release scope and required acceptance checks](docs/releases/V0_1_0_RC1_SCOPE.md).
-
-## Recommended first steps
-
-With a configured MPML checkout, run `argus doctor`, `argus inspect EXPERIMENT_VARIANT`, `argus explain precedence`, `argus index`, and `argus ask --agent-v2 "What is the default for EXPERIMENT_SEED?"`. For a model-assisted, qualified assessment, install the `llm` extra, start Ollama with `qwen2.5-coder:7b`, and try `argus ask 'Use strategy MR32 with seed 57.' --agent-v2`. Full installation and legacy workflow details follow below; release checks and limitations are tracked in the [candidate scope](docs/releases/V0_1_0_RC1_SCOPE.md).
-
-## Install
-
-```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev,llm]'
-export MPML_REPO=/absolute/path/to/market-phase-ml
-export MPML_PYTHON=/absolute/path/to/market-phase-ml/.venv/bin/python
-argus doctor
-argus spec
-argus preflight -- --strategy MR32 --behavioral-surface trend_vol
-argus preflight --env DL_SIGNALS_ENABLED=1 -- --strategy MR32
-python -m pytest -q
-```
-
-MPML is not a pip dependency: the bridge uses MPML's own interpreter and the repo root
-as the subprocess working directory. No experiment commands are executed.
-
-## Look up MPML settings
-
-```bash
-argus inspect --strategy
-argus inspect EXPERIMENT_VARIANT
-argus explain precedence
-argus explain experiment_variant
-argus explain warnings
-argus explain strategies
-argus recipe defaults
-```
-
-`inspect` matches exact flag spellings and environment variable names. It prints the
-published parameter record, including its default, any structured choices or post-parse
-choices, and matching precedence entries. Environment choices and alias behavior may
-appear in the published semantics text. The flag default is the parser default. Consult
-precedence and environment semantics for runtime fallbacks.
-
-`explain` also accepts an exact flag, environment variable, precedence setting, or preflight
-issue code. The `warnings` topic lists the published diagnostic summaries, including
-potential errors. Actual findings come from preflight. Lookup reports include the MPML
-checkout SHA, dirty state, interpreter, schema version, and canonical spec SHA-256.
-
-`recipe defaults` proposes an empty argument list with no environment overrides and
-runs MPML preflight using the inherited process environment. The JSON includes the working
-directory, interpreter, entrypoint, arguments, overrides, findings, and verification
-status. `validated` and `validated_with_warnings` describe the preflight result.
-`rejected` and `unverified` return a nonzero status. For a custom candidate, use
-`argus preflight --env KEY=VALUE -- <MPML args>`.
-
-## Retrieve cited MPML evidence
-
-```bash
-argus index
-argus retrieve "What takes precedence over EXPERIMENT_VARIANT?"
-argus retrieve -- --strategy
-```
-
-`argus index` reads the live spec and the Markdown paths in `sources.mpml.documents` in
-`sources.yaml`. It writes `indexes/mpml.json` relative to the working directory.
-The index is gitignored and contains the selected source text. Build and query it from
-the same working directory. Each hit includes a stable chunk ID, the source text, and a
-citation with the repository key, relative path, heading, Git SHA, and dirty state.
-Spec headings identify schema entries. Markdown sections use hash-prefixed headings.
-
-Lexical retrieval uses BM25+ and preserves exact flag and environment tokens as well
-as their component words. To compare it with cosine similarity and reciprocal rank
-fusion, start Ollama on the default loopback port and use a locally installed embedding model.
-
-```bash
-ollama pull nomic-embed-text
-argus index --embed nomic-embed-text
-argus retrieve --mode embedding "How do artifact path overrides work?"
-argus retrieve --mode hybrid "How do artifact path overrides work?"
-argus retrieve --mode all "How do artifact path overrides work?"
-```
-
-`--mode all` returns the three ranked lists for the same query. Each list defaults to
-five results. Only `argus index` writes the artifact or embeds the corpus. Embedding,
-hybrid, and ablation queries send one query embedding request to the local Ollama
-instance. Argus checks the stored model digest before using those vectors.
-
-Retrieval checks the live Git SHA and dirty state, the spec hash, and the selected
-Markdown hashes before returning hits. A changed revision or evidence file requires
-rebuilding with `argus index`, including `--embed MODEL` if using embedding modes.
-A dirty checkout can be indexed, with the dirty state visible in each citation.
-
-### Synthetic hit@5
-
-The held-out fixture contains six questions. A hit means the expected path and
-heading appeared among the first five results.
-
-| Ranking | Hit@5 |
-| --- | ---: |
-| Lexical BM25+ | 5/6 |
-| Embedding cosine | 6/6 |
-| Hybrid | 6/6 |
-
-The fixture uses a synthetic spec, Markdown, and embedding responses. These scores
-measure the retrieval pipeline on the fixture. Live Ollama and MPML retrieval quality
-remain unmeasured.
-
-```bash
-python -m pytest -q -s tests/test_retrieval.py::test_held_out_hit_at_five
-```
-
-## Ask for a cited MPML recipe
-
-Use a configured MPML checkout whose interpreter can run both `mpml.spec` and
-`mpml.preflight`. Start local Ollama on port 11434. Use
-`OLLAMA_NO_CLOUD=1 ollama serve` when starting a dedicated instance. Install the
-`llm` extra for `ask` and pull both local models before indexing or querying.
-
-```bash
-python -m pip install -e '.[llm]'
-ollama pull nomic-embed-text
-ollama pull qwen2.5-coder:7b
-argus index --embed nomic-embed-text
-argus ask --timeout 300 "How do I evaluate MR32 on USDJPY?"
-```
-
-Check the JSON for the intended `--strategy MR32` and `ACTIVE_PAIRS=USDJPY`, resolved
-citations, and the original MPML preflight findings. A successful recipe has a
-POSIX-shell-escaped `command` for **manual execution only**. Argus leaves execution and
-intent unverified. Review the argv, overrides, and any warnings before using it,
-and keep the same inherited environment if you decide to run it.
-
-- `structural_validation` covers schema, citation membership, and the allowed argument
-  and override shapes. MPML owns parsing and semantic checks.
-- `preflight_validation` reports whether MPML accepted the candidate. The overall
-  `verification` can still be `abstained`. Argus withholds the command when the
-  proposed or inherited `DL_SIGNALS_ENABLED` value is nonempty and differs from
-  `false` (case-insensitive), since preflight cannot confirm activation.
-- `ask` exits 0 when it renders a command, 1 for a JSON rejection, abstention, or
-  unverified result, and 2 for CLI/configuration errors.
-
-The defaults are `qwen2.5-coder:7b`, hybrid retrieval, temperature 0, seed 42,
-an 8192-token context, up to 1100 generated tokens, and a 180-second generation
-timeout. Configure the model, temperature, seed, and timeout with `--model`,
-`--temperature`, `--seed`, and `--timeout`. CPU-only inference can take minutes.
-For an index built without embeddings, pass `--retrieval-mode lexical`. Rebuild
-a stale index before asking.
-
-The smoke fixture records M3 generation outcomes independently of the M2.5
-retrieval benchmark. [M3 smoke fixture](eval/generation/README.md)
-
-The architecture note describes how Argus handles model output, source evidence,
-and preflight. [Trust boundary ADR](docs/adr/0003-structured-generation.md)
-
-## M4 architecture
-
-M3 remains the default single-pass workflow. M4B-2 connects the optional graph
-to local generation, preflight, and bounded repair.
-
-```bash
-python -m pip install -e '.[llm,agent]'
-argus ask "How do I evaluate MR32 on USDJPY?" --agent
-```
-
-The agent uses the same source configuration, index, and local model settings
-as `ask`. It reserves at most three calls, including the first generation,
-and keeps retrieval evidence and explicit constraints fixed during repair.
-Each new candidate goes through the validation gates again. The JSON report
-records the final disposition, source and index fingerprints, call and repair
-counts, per-attempt findings, and end-to-end time. MPML diagnostics are preserved
-as returned. Repair feedback excludes raw model output and bridge stderr.
-
-```mermaid
-flowchart TD
-    V[Verify MPML source and index] --> R[Retrieve verified MPML evidence]
-    R --> X[Extract explicit intent constraints]
-    X --> G[Structured local generation]
-    G --> S[Structural and citation validation]
-    S --> P[Authoritative MPML preflight]
-    P --> I[Separate intent-consistency checks]
-    I --> D{Release decision}
-    S -->|Invalid candidate| D
-    D -->|All gates pass| M[Validated manual command]
-    D -->|Repairable| B[Bounded repair: at most two additional calls]
-    B --> G
-    D -->|Rejected| J[Rejection]
-    D -->|Unresolved or unsupported| A[Abstention]
-    X -->|Unresolved| A
-    V -->|Stale source or index| U[Unverified]
-    G -->|Generation failure| U
-    P -->|Unavailable or drift| U
-```
-
-The extractor covers narrow patterns. Otherwise reasonable wording can result
-in an abstention, with the reason visible in the report. A released command is
-for manual use. Explicit-intent consistency covers the extracted requirements.
-Full semantic intent, experiment success, artifact loading, and DL activation
-remain unverified. [Detailed graph and limits](docs/adr/0004-bounded-langgraph-orchestration.md)
-
-## MPML explanations and local proposal assessment
-
-Use `--agent-v2` to ask about documented MPML options without starting Ollama.
-Install the `llm` extra for the v2 JSON schema and build a lexical index from a
-clean MPML checkout with `argus index`. An existing fresh index also works.
+Use Python 3.12, Git, and a local MPML checkout whose own interpreter can run
+`mpml.spec` and `mpml.preflight`. MPML is configured separately from the Argus
+package. Run the examples from the Argus checkout so `sources.yaml` and the
+local index share a working directory.
 
 ```sh
-argus ask --agent-v2 "What happens if ACTIVE_PAIRS is unset?"
-argus ask --agent-v2 "Which takes precedence, --experiment-seed or EXPERIMENT_SEED?"
+python3.12 -m venv .venv
+. .venv/bin/activate
+python -m pip install '.[llm]'
+argus --version
+
+export MPML_REPO=/absolute/path/to/market-phase-ml
+export MPML_PYTHON=/absolute/path/to/market-phase-ml/.venv/bin/python
+
+argus doctor
+argus inspect EXPERIMENT_VARIANT
+argus explain precedence
+argus index
+argus retrieve 'What takes precedence over EXPERIMENT_VARIANT?'
+argus ask --agent-v2 'What is the default for EXPERIMENT_SEED?'
+argus preflight -- --strategy MR32 --experiment-seed 57
 ```
 
-The JSON response uses `argus-response-v2.0` and cites exact specification entries
-for CLI and environment defaults, precedence, read timing, source-edit-only
-settings and diagnostic meanings. Use exact MPML names for the best coverage.
-Answers describe documented launch behavior and carry no command or candidate
-settings. Exit code 0 indicates a grounded answer, 1 indicates withholding or
-a question that needs clarification, and 2 indicates unavailable verification
-or a CLI error. `--agent-v2` and `--agent` are mutually exclusive.
+`pip install .` provides the deterministic core commands. The `llm` extra also
+installs the v2 interface, including its deterministic answer path. That path
+does not call a model. MPML credentials and market datasets are unnecessary
+for this inspection and preflight workflow. Use `argus --config /path/to/sources.yaml`
+before the subcommand to use a different source file.
 
+For one local configuration assessment, start Ollama on its default loopback
+port and install the existing Qwen model if needed:
 
-Relevant launch requests can use one local Ollama proposal and get a qualified
-explanation of its checks, with the recipe withheld. This path uses lexical
-retrieval and the configured local model. See the
-[workflow and maintainer smoke test](eval/m4v2/LOCAL_WORKFLOW.md).
+```sh
+ollama pull qwen2.5-coder:7b
+argus ask --agent-v2 'Use strategy MR32 with seed 57.'
+```
 
+V2 uses lexical retrieval and at most one model call. Its standard workflow
+requires neither an embedding model nor LangGraph. Choose a strategy published
+by your MPML revision if it does not include `MR32`.
 
-## Key repo files
+## Read the results
 
-- `PLAN.md`: updated implementation roadmap and evaluation strategy
-- `sources.yaml`: source repo bridge configuration (environment-variable expansion)
-- `docs/adr/`: architectural decisions
-- `docs/prompts/`: Codex implementation prompts
-- `src/argus_cli/adapters/mpml.py`: constrained MPML spec/preflight subprocess bridge
-- `tests/`: synthetic/mock tests, independent of private repos
+| Finding | What it establishes |
+| --- | --- |
+| Cited deterministic explanation | A documented setting or precedence rule in the verified MPML snapshot. |
+| Preflight acceptance | MPML accepted the candidate launch surface. Execution, DL activation and artifact loading remain unverified. |
+| Candidate correctness | The proposed settings match the request where separately checked. Accepted preflight alone cannot establish this. |
+| Complete intent and release authorization | Requires independent verification of the entire request and effective configuration. V2 in this preview withholds manual commands and full candidate settings. |
 
-## Limitations
+V2 returns `argus-response-v2.0` JSON with `answer_status`, `recipe_status`,
+`intent_coverage`, `material_constraints_status`, and `workflow` diagnostics.
+Public `command` and `settings` are null. Exit code **0** denotes a grounded
+deterministic answer, **1** covers qualified guidance, a withheld request or
+needed clarification, and **2** indicates unavailable verification or a CLI
+error. A qualified assessment can be useful even when it exits 1. Explicit
+`argus preflight` reports MPML diagnostics and uses MPML’s exit status.
 
-- Lookup reports documented settings. It does not resolve the effective value for your
-  current environment or infer choices and precedence the spec leaves implicit.
-- The only recipe is `defaults`. Inherited settings may affect the candidate, including
-  whether it requests DL. Preflight checks the launch surface. Artifact loading,
-  DL activation, and experiment success require a separate run.
-- Lookup uses the live spec. A dirty checkout means its Git SHA alone cannot identify
-  the inspected content.
-- The adapter is scoped to MPML's `schema_version: 1`; schema changes require explicit
-  review and version handling.
+Inspection reports parser defaults and published precedence separately. The
+lexical index lives at `indexes/mpml.json` relative to the working directory
+and contains selected source text. Keep it local. If source revision, spec or
+reference text changes, run `argus index` again from that directory. V2 requires
+a clean MPML checkout and a current verified index.
+
+## Preview boundaries and legacy workflows
+
+Environment-only requests can still lead to wrong proposed channels, and
+`ACTIVE_PAIRS` requests can omit the pair filter. Argus performs no experiment
+execution or broker operations. Support is scoped to MPML schema version 1.
+
+**Plain `argus ask` still runs M3.** The `--agent` option selects historical
+M4 v1. These experimental modes may produce manual commands under different
+checks. `--agent` and `--agent-v2` are mutually exclusive.
+See [legacy usage, architecture and evaluation](docs/architecture/LEGACY_WORKFLOWS.md).
+
+## Release and development
+
+- [Release scope](docs/releases/V0_1_0_RC1_SCOPE.md)
+- [Acceptance checklist and exact smoke commands](docs/releases/V0_1_0_RC1_ACCEPTANCE.md)
+- [Draft release notes](docs/releases/V0_1_0_RC1_NOTES.md)
+- [Roadmap](PLAN.md) and [v2 development evaluation](eval/m4v2/README.md)
