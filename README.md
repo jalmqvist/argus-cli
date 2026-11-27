@@ -4,8 +4,13 @@ Local, privacy-preserving, **read-only** research CLI assistant. An MPML-first p
 project demonstrating deterministic tool integration, local LLMs, structured generation,
 RAG, validation and measured agent reliability.
 
-**Current state:** MPML lookup, preflight, local retrieval, and structured recipe generation.
-Argus reads the published MPML spec from your checkout and can preflight a proposed launch.
+**Preview scope:** MPML specification inspection, source-grounded explanation, local retrieval, read-only preflight, and opt-in local-Qwen configuration assessment. The recommended advisory interface is `argus ask --agent-v2`; it does **not** release a validated manual recipe or public candidate settings. Historical `argus ask` (M3 default) and `--agent` (M4 v1) can produce manual commands under different, incomplete intent checks; treat them as experimental rather than equivalent to v2.
+
+The first developer-preview release candidate (`v0.1.0rc1`) is **planned, not yet published**. See [release scope and required acceptance checks](docs/releases/V0_1_0_RC1_SCOPE.md).
+
+## Recommended first steps
+
+With a configured MPML checkout, run `argus doctor`, `argus inspect EXPERIMENT_VARIANT`, `argus explain precedence`, `argus index`, and `argus ask --agent-v2 "What is the default for EXPERIMENT_SEED?"`. For a model-assisted, qualified assessment, install the `llm` extra, start Ollama with `qwen2.5-coder:7b`, and try `argus ask 'Use strategy MR32 with seed 57.' --agent-v2`. Full installation and legacy workflow details follow below; release checks and limitations are tracked in the [candidate scope](docs/releases/V0_1_0_RC1_SCOPE.md).
 
 ## Install
 
