@@ -1,6 +1,6 @@
 # Argus CLI — Implementation Plan and Research Roadmap
 
-**Status:** Updated 2026-11-26 · MPML-first, local-first, read-only · M4v2-3A/B/C complete through paired local development regression · paused before targeted diagnosis/human review and independent M4v2-4 holdout
+**Status:** Updated 2026-11-27 · MPML-first, local-first, read-only · M4v2-3A/B/C development completed · next: v0.1.0rc1 release preparation and maintainer-local acceptance; independent M4v2-4 evaluation and redesign follow the preview
 
 ## 1. Purpose, scope and success criteria
 
@@ -16,6 +16,7 @@ The product distinguishes three useful outcomes:
 
 ### MVP engineering priorities
 
+- **Release a truthful, working preview before broader optimization:** deliver installable, source-grounded, read-only MPML inspection, retrieval, preflight and qualified v2 advisory functionality as `v0.1.0rc1` after clean-install/CI/local acceptance checks. Do not equate release readiness with general natural-language recipe correctness or complete intent certification. See [release scope and gates](docs/releases/V0_1_0_RC1_SCOPE.md).
 - **Usability before comprehensiveness:** first ship a helpful opt-in v2 assistant that answers grounded questions and explains why some recipes cannot yet be certified; measure unnecessary withholding as well as unsafe releases.
 - **Fixed hardware budget:** maintain practical operation on the maintainer's NVIDIA GTX 1070 with **8 GB VRAM**. Keep the existing local `qwen2.5-coder:7b` baseline; no larger model, second verifier model, GPU upgrade, or always-on multi-pass inference required for MVP. Prefer one generation attempt, no automatic repair initially; measure real latency and memory rather than assume a model fits fully in VRAM.
 - **Do not weaken release claims:** `validated` still requires all trusted recipe gates. When those gates fail, offer independently grounded, explicitly limited help, not a disguised runnable recipe. Keep model-authored candidates private until release.
@@ -107,6 +108,17 @@ Counts are recorded snapshots of milestone validation runs, **not cumulative cur
 
 ## 5. Forward roadmap — prioritized sequence
 
+### v0.1.0rc1 — Read-only developer preview (**next release checkpoint; not yet published**)
+
+**Goal:** Publish an installable, accurately scoped working version without rushing redesign or relaxing command-release gates. [Release scope, acceptance gates and post-preview priorities](docs/releases/V0_1_0_RC1_SCOPE.md) are the governing checklist.
+
+- **Release preparation:** clean up onboarding/README to recommend `argus ask --agent-v2` for grounded/qualified assistance while explicitly labeling default M3 `argus ask` and M4 v1 `--agent` as legacy/experimental; do not silently change old mode behavior. Align package metadata and intended `v0.1.0rc1` Git tag, prepare build, clean-install and release notes.
+- **Release blockers:** public synthetic CI/tests and Ruff; successful wheel/sdist build and installed CLI entrypoint; maintainer-local smoke of pinned clean MPML spec, inspect/explain, lexical index and retrieve, read-only explicit preflight, deterministic v2 answer and one local-Qwen v2 assessment. Confirm `command=null`/`settings=null` in v2 and no experiments or broker actions. Document exact evidence and hashes before tagging.
+- **Publication rule:** release-preparation PR first, then reviewer-approved verified GitHub pre-release/tag. No release label or claim that checks passed ahead of evidence. PyPI publication is outside this checkpoint without separate approval.
+- **Claims:** working local read-only developer preview; **not** certified general natural-language manual recipes. Report 5/7 exact-correct first-attempt supported configurations in the developer-authored paired regression with sample/denominator limitations, not as holdout success. Document environment-only and `ACTIVE_PAIRS` failures, plus incomplete material-intent and aggregate effective-configuration certification.
+
+**After the preview:** diagnose the two errors, independently review answer usefulness/false withholding and gold alternatives, and run a separately authored/frozen M4v2-4 evaluation. Treat later broader redesign and a stable `v0.1.0` decision as evidence-led, not deadline-driven.
+
 ### M4v2-2C1 — Trusted live adapter integration (**complete**)
 
 The fixed-candidate live validation adapter is merged ([PR #27](https://github.com/jalmqvist/argus-cli/pull/27)). The documented maintainer-local read-only smoke on pinned MPML revision `14ad36e3…` verified provenance, environment, structure, citations and support, and returned preflight `accepted` (exit 0). Only `material_intent` and `effective_configuration` remained unresolved, as designed. [Recorded observations](eval/m4v2/LIVE_VALIDATION.md) are not an LLM or generalization evaluation.
@@ -139,7 +151,7 @@ The fixed-candidate live validation adapter is merged ([PR #27](https://github.c
 
 Use actual C3 failures to study which natural-language request classes can have their complete material intent independently verified. Compare bounded deterministic representations, targeted clarification and advisory model interpretation; no model self-certification. Measure false-completeness versus unnecessary-withholding rates on new development cases. Promote only a defensible, bounded subset to independently verified recipe eligibility; the rest still receive grounded qualified guidance. Broader coverage work is incremental, not a blocker to the first useful answer/candidate workflow.
 
-### M4v2-3 — Practical development evaluation and evidence-led improvements (**in progress**)
+### M4v2-3 — Practical development evaluation and evidence-led improvements (**3A/B/C complete; further work after preview**)
 
 **3A (complete):** The maintainer-local first-attempt harness ran 14 developer-authored cases using the existing GTX 1070/Qwen setup with reproducible source/model/index hashes and independent candidate scoring. **3B (initial descriptive review complete):** [Findings](eval/m4v2/FIRST_ATTEMPT_FINDINGS_3B.md) identify a false routing exclusion, correct model candidates with incomplete seed evidence, incorrect environment/pair/PhaseAware proposals, and generic response limitations. Human gold review and factual/usefulness adjudication remain open; do not describe them as completed scores.
 
@@ -149,13 +161,13 @@ Use actual C3 failures to study which natural-language request classes can have 
 
 Only consider classified repair or larger-model ablations if subsequent failure evidence and practical latency justify them. Compare M3, M4 v1 and v2 on explicitly labeled development/regression cases under matched conditions as appropriate; never reuse exposed M4C cases as fresh holdout evidence. Independent promotion still requires M4v2-4.
 
-### M4v2-4 — New independent holdout and promotion decision
+### M4v2-4 — New independent holdout and promotion decision (**after v0.1.0rc1**)
 
 Commission separately authored and reviewed MPML questions, with provenance, fixed gold alternatives and a preregistered split between machine-scored recipes and human-reviewed factual answers. Freeze raw bytes and scoring policy **before** testing v2. Label as a new holdout version; do not modify M4C `holdout-v1`. Evaluate matched M3, M4 v1 and v2. Require defensible supported-task completion and false-withholding improvement with **zero observed command-release invariant violations**; report small-sample uncertainty rather than claiming universal safety.
 
-### M5 — Portfolio release (later)
+### M5 — Stable release and portfolio polish (later)
 
-After an independent evaluation, prepare a reproducible fresh-clone demo, readable architecture diagram, local Ollama setup and documented limitations for the 8 GB VRAM target. Larger-model ablations are optional, not a release prerequisite. Public CI remains synthetic and must not require private MPML data or multi-GB models. Additional source adapters (MSML/BSVE/MRML) require separate ADRs and integration tests.
+The `v0.1.0rc1` read-only preview is the earlier release milestone; M5 is a **separate stable-promotion and portfolio-quality** checkpoint, not a prerequisite for the candidate. Following independent evaluation, refine the fresh-clone demo, architecture diagram, local Ollama setup and limitations for the 8 GB VRAM target. Larger-model ablations are optional, not a release prerequisite. Public CI remains synthetic and must not require private MPML data or multi-GB models. Additional source adapters (MSML/BSVE/MRML) require separate ADRs and integration tests.
 
 ## 6. Evaluation discipline and promotion gates
 
@@ -188,6 +200,8 @@ Use Python 3.12, `pytest`, Ruff and GitHub Actions. Keep Argus's `argus` CLI loc
 
 ## 9. Definition of done for the MPML MVP
 
+**Preview (`v0.1.0rc1`) and stable promotion have different gates.** The preview requires the clean-install, CI, read-only local source and v2 smoke checks in [release scope](docs/releases/V0_1_0_RC1_SCOPE.md), plus accurate capability/limitation documentation. It does **not** claim general verified natural-language recipe release or require a new independent holdout before its first publication. The stronger targets below remain appropriate for later stable promotion and continuous research.
+
 - Documented MPML configuration questions can yield verified, cited explanation-only answers without producing a command.
 - For a supported, complete manual launch request, a candidate may be released **only** after all independent gates pass; otherwise return a grounded rejection/limitation or abstain without a runnable command.
 - Local generation and any repair are bounded, auditable, reproducible and never execute experiments.
@@ -203,6 +217,7 @@ Use Python 3.12, `pytest`, Ruff and GitHub Actions. Keep Argus's `argus` CLI loc
 - [M4v2-3A local evaluation method](eval/m4v2/FIRST_ATTEMPT_DEVELOPMENT.md)
 - [M4v2-3B local findings](eval/m4v2/FIRST_ATTEMPT_FINDINGS_3B.md)
 - [M4v2-3C paired local findings and restart point](eval/m4v2/PAIRED_FINDINGS_3C.md)
+- [v0.1.0rc1 preview scope and release gates](docs/releases/V0_1_0_RC1_SCOPE.md)
 - [M4C-3 and M4C-4 findings](docs/evaluation/)
 - [M4 v1 orchestration ADR](docs/adr/0004-bounded-langgraph-orchestration.md)
 - `docs/prompts/` and `eval/` for milestone prompts, fixtures and scorer provenance.
