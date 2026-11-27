@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "argus-cli"
-version = "0.1.0"
+version = "0.1.0rc1"
 description = "Local, read-only, evidence-grounded research CLI assistant"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -28,6 +28,9 @@ argus = "argus_cli.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/argus_cli"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src/argus_cli/**/*.py", "/README.md", "/pyproject.toml"]
 
 [tool.ruff]
 line-length = 100
